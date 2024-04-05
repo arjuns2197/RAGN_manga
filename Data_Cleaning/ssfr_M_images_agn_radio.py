@@ -36,7 +36,9 @@ def point_exists_in_grid(df, M1, M2, ssfr1, ssfr2):
         if df['log_Mass'][i] > M1 and df['log_Mass'][i] < M2 and df['sSFR'][i] > ssfr1 and df['sSFR'][i] < ssfr2:
             if df['agn flux detectable'][i] == True:
                 if df['Radio Class'][i] != 3:
-                    return True
+                    if df['Flux FIRST(30s)'][i].sum() > 0.5:
+
+                        return True
         
     else:
         return False
@@ -79,7 +81,8 @@ def get_random_position(df,M1, M2, ssfr1, ssfr2):
             for i in range(6255):
                 if df['log_Mass'][i] > M1 and df['log_Mass'][i] < M2 and df['sSFR'][i] > ssfr1 and df['sSFR'][i] < ssfr2:
                     if df['agn flux detectable'][i] == True:
-                        inds.append(i)
+                        if df['No. FIRST matches(30s)'][i] == 1:
+                            inds.append(i)
 
 
         random_ind = np.random.choice(inds)
@@ -87,6 +90,7 @@ def get_random_position(df,M1, M2, ssfr1, ssfr2):
         rand_dec = df['DEC'][random_ind]
 
         rand_pos = get_hmsdms(rand_RA, rand_dec)
+        print(random_ind)
 
         return rand_pos
 
@@ -99,11 +103,12 @@ ssfr = df_matched['sSFR']
 M = df_matched['log_Mass']
 sfr = df_matched['log_SFR_ssp']
 
+print(df_matched['log_Mass'][inds_agn].min())
 
-xmin = 10.65
+xmin = 10
 xmax = 12
 ymin = -15.75
-ymax = -11
+ymax = -9
 
 n = int(10)
 
@@ -115,8 +120,8 @@ ax_histx = ax.inset_axes([0, 1.05, 1, 0.2])
 ax_histx.set_xticklabels(labels = [])
 ax_histx.set_xticks([])
 ax_histx.set_ylabel(r"$\rm N_{\rm AGN}$", fontsize = 0.8*f)
-ax_histx.set_yticks([30,60])
-ax_histx.set_yticklabels(labels = [30,60], fontsize = 0.8*f)
+ax_histx.set_yticks([40,80])
+ax_histx.set_yticklabels(labels = [40,80], fontsize = 0.8*f)
 ax_histx.hist(M[inds_agn], bins = n, color = 'tab:gray', range = (xmin,xmax), alpha = 0.4)
 ax_histx.set_xlim(xmin,xmax)
 
@@ -127,8 +132,8 @@ ax_histy.set_xlabel(r"$\rm N_{\rm AGN}$", fontsize = 0.8*f)
 ax_histy.xaxis.set_label_position('top')
 ax_histy.xaxis.tick_top()
 ax_histy.hist(ssfr[inds_agn], bins = n, orientation = 'horizontal',color = 'tab:gray', range = (ymin, ymax), alpha = 0.4)
-ax_histy.set_xticks([15,30])
-ax_histy.set_xticklabels(labels = [20,40], fontsize = 0.8*f, rotation = '-90')
+ax_histy.set_xticks([25,50])
+ax_histy.set_xticklabels(labels = [25,50], fontsize = 0.8*f, rotation = '-90')
 ax_histy.set_ylim(ymin,ymax)
 
 
@@ -136,12 +141,10 @@ ax.set_xlim(xmin,xmax)
 ax.set_ylim(ymin,ymax)
 ax.set_xlabel(r"$\log\left(M_\star/M_\odot\right)$", fontsize = f)
 ax.set_ylabel(r"$\log\left(\rm sSFR/yr^{-1}\right)$", fontsize = f)
-ax.set_xticks([10.8,11.3,11.8])
-ax.set_yticks([-15,-14,-13,-12])
-ax.set_xticklabels(labels = [10.8,11.3,11.8],fontsize = f)
-ax.set_yticklabels(labels = [-15,-14,-13,-12],fontsize = f)
-
-
+ax.set_xticks([10.3,10.8,11.3,11.8])
+ax.set_yticks([-15,-14,-13,-12, -11, -10])
+ax.set_xticklabels(labels = [10.3,10.8,11.3,11.8],fontsize = f)
+ax.set_yticklabels(labels = [-15,-14,-13,-12, -11, -10],fontsize = f)
 
 
 for i in range(n):
@@ -197,6 +200,4 @@ for i in range(n):
 
             
 
-
-plt.savefig("ssfr_M_dist_agn_radio.png", dpi = 300)
 plt.show()

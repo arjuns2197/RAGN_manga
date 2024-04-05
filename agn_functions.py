@@ -272,6 +272,8 @@ def delete_unrelated_flux_2_1(df_matched,index):
     df_matched["Indices NVSS matches(3m)"].iloc[index] = [df_matched["Indices NVSS matches(3m)"].iloc[index][required_index]]
     df_matched["No. NVSS matches(3m)"].iloc[index] = 1
 
+    if "Flux Error NVSS(3m)" in df_matched.columns:
+      df_matched["Flux Error NVSS(3m)"].iloc[index] = [df_matched["Flux Error NVSS(3m)"].iloc[index][required_index]]
 
 def get_property_at_indices(data,indices,property):
 
@@ -1542,6 +1544,10 @@ def delete_unrelated_flux_3_1(df_manga,index):
     df_manga["DEC NVSS(3m)"].iloc[index] = [df_manga["DEC NVSS(3m)"].iloc[index][required_index]]
     df_manga["Indices NVSS matches(3m)"].iloc[index] = [df_manga["Indices NVSS matches(3m)"].iloc[index][required_index]]
     df_manga["No. NVSS matches(3m)"].iloc[index] = 1
+
+    if "Flux Error NVSS(3m)" in df_manga.columns:
+      df_manga["Flux Error NVSS(3m)"].iloc[index] = [df_manga["Flux Error NVSS(3m)"].iloc[index][required_index]]
+
 
   ###########################################
 
@@ -4479,6 +4485,11 @@ def delete_unrelated_nvss_flux_vi(df_matched, index):
       df_matched["DEC NVSS(3m)"].iloc[index] = np.array(df_matched["DEC NVSS(3m)"].iloc[index])[associated_indices]
       df_matched["Indices NVSS matches(3m)"].iloc[index] = np.array(df_matched["Indices NVSS matches(3m)"].iloc[index])[associated_indices]
       df_matched["No. NVSS matches(3m)"].iloc[index] = len(associated_indices)
+
+      if "Flux Error NVSS(3m)" in df_matched.columns:
+        df_matched["Flux Error NVSS(3m)"].iloc[index] = [df_matched["Flux Error NVSS(3m)"].iloc[index][required_index]]
+        print("JHiiiii")
+
 
       associated_first_indices = get_associated_first_indices(plateifu)
 
