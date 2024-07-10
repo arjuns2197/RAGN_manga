@@ -23,66 +23,10 @@ from scipy.special import betainc
 from scipy.optimize import curve_fit
 
 
-
-
-'''
-
-mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_output.npz")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
+mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_mass_6255_final.npz")
 samples = mcmc_samples['flat_samples']
-
-
-alpha0s = samples[:,0]
-betas = samples[:,1]
-lamstars = samples[:,2]
-log_mins = samples[:,3]
-
-inds_alps = np.where((alpha0s > 2.23) & (alpha0s < 2.45))
-inds_bets = np.where((betas > -6.6) & (betas < -5.71))
-inds_lamstars = np.where((lamstars > 0.87) & (lamstars < 1.5))
-inds_mins = np.where((log_mins > -4.54) & (lamstars < -4.26))
-
-alpha0s = alpha0s[inds_alps]
-betas = betas[inds_alps]
-lamstars = lamstars[inds_alps]
-log_mins = log_mins[inds_alps]
-
-def line_eqn(log_mass,a,c):
-
-    log_F = a*(log_mass) + c 
-
-    return log_F
-
-exponents = []
-
-for i in range(len(alpha0s)):
-
-    model_parms = [alpha0s[i],betas[i],lamstars[i],log_mins[i]]
-    [f_prop,prop_center] = agn.get_abs_agn_frac("log_Mass",df_manga,model_parms,0.01)
-
-    ind_good_frac = np.where(f_prop > 0)
-
-    f_prop = np.log10(f_prop[ind_good_frac])
-    prop_center = prop_center[ind_good_frac]
-
-    popt, pcov = curve_fit(line_eqn, prop_center, f_prop)
-
-    a = popt[0]
-    c = popt[1]
-
-    print(a,c)
-
-    log_ms = np.linspace(9.5,12,500)
-    plt.scatter(prop_center, f_prop)
-    plt.plot(log_ms,line_eqn(log_ms,a,c))
-    plt.show()    
-
-'''
-correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
-
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6731.pkl")
-mcmc_samples = np.load("..\mcmc_output.npz")
-samples = mcmc_samples['flat_samples']
-optimal_parms = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass.npz')
+optimal_parms = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass_final.npz')
 
 alp_opt = optimal_parms['alpha_0']
 bet_opt = optimal_parms['beta']
@@ -94,16 +38,15 @@ betas = samples[:,1]
 lamstars = samples[:,2]
 log_mins = samples[:,3]
 
-inds_alps = np.where((alpha0s > 2.014) & (alpha0s < 2.194))
-inds_bets = np.where((betas > -5.812) & (betas < -5.206))
-inds_lamstars = np.where((lamstars > 0.603) & (lamstars < 0.888))
-inds_mins = np.where((log_mins > -4.713) & (lamstars < -4.299))
+inds_alps = np.where((alpha0s > 1.89) & (alpha0s < 2.11))
+inds_bets = np.where((betas > -5.30) & (betas < -4.71))
+inds_lamstars = np.where((lamstars > 0.01) & (lamstars < 0.02))
+inds_mins = np.where((log_mins > -5.95) & (lamstars < -5.38))
 
 alpha0s = alpha0s[inds_alps]
 betas = betas[inds_alps]
 lamstars = lamstars[inds_alps]
 log_mins = log_mins[inds_alps]
-
 
 
 def cubic(log_m, a,b,c,d):
@@ -121,7 +64,7 @@ for i in range(len(alpha0s)):
 
     opt_parms = [alp_opt,bet_opt,lam_opt,log_min_opt]
 
-    [F_mean, log_M_mean] = agn.get_abs_agn_frac(opt_parms,-2,10)
+    [F_mean, log_M_mean] = agn.get_abs_agn_frac(opt_parms,-3,10)
 
     log_F_mean = np.log10(F_mean)
 
@@ -136,7 +79,7 @@ for i in range(len(alpha0s)):
 
     model_parms = [alpha0,beta,lambda_star,log_lambda_min]
 
-    [F,log_M] = agn.get_abs_agn_frac(model_parms,-2,10)
+    [F,log_M] = agn.get_abs_agn_frac(model_parms,-3,10)
 
     log_F = np.log10(F)
 
@@ -156,10 +99,14 @@ d_array = np.array(d_array)
 np.savez_compressed("../AGN_FIRST_files/results/frac/abs_F_fit.npz", a_array = a_array,
 b_array = b_array, c_array = c_array, d_array = d_array)
 
-    
 
 
+file = np.load("../AGN_FIRST_files/results/frac/abs_F_fit.npz")
+a = file['a_array']
+b = file['b_array']
+c = file['c_array']
+d = file['d_array']
 
-
+print(a.min(), a.max())
 
 

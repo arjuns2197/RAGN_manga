@@ -21,8 +21,9 @@ from astropy.table import Column
 from astropy.table import Table
 log_lambda_max = 1.7
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_w100_Ha.pkl")
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6250_Ha.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_final_w1000.pkl")
+
 
 
 def plot_frac(property):
@@ -34,7 +35,7 @@ def plot_frac(property):
     plt.errorbar(prop_mc,frac_prop_mc,yerr = errorbar_prop, fmt = 'H',c = 'tab:gray', ms = 1.5*18, capsize = 5, alpha = 0.6, label = "Model")
     plt.legend(prop = {'size' : 15})
     plt.yscale('log')
-    plt.ylim(7e-6,0.75)
+    plt.ylim(7e-6,1.5)
     plt.yticks([1e-4,1e-3,1e-2,1e-1], labels = [-4,-3,-2,-1])
     plt.tick_params(axis ='y',labelsize =f)
     plt.ylabel(r"$\log_{\rm 10} ~\rm f_{\rm AGN}$", fontsize = 1.2*f)
@@ -62,7 +63,7 @@ for i in enumerate(properties):
         
         plt.xlabel(r"$\log_{\rm 10}\left(\sigma_v/\rm ~km~ \rm s^{\rm -1}\right)$", fontsize = f)
         plt.tick_params(axis ='x',labelsize =f)
-        plt.xlim(1.6,2.7)
+        plt.xlim(1.7,2.7)
         plt.xticks([1.8,2,2.2,2.4,2.6]) 
         
     if i[0] == 2:
@@ -70,7 +71,7 @@ for i in enumerate(properties):
         plt.xlabel(r"$\log_{10}\left(\rm SFR/\rm ~M_\odot ~ \rm yr^{\rm -1}\right)$", fontsize = f)
         plt.tick_params(axis ='x',labelsize =f)
         plt.xlim(-6,2.5)
-        plt.xticks([-4,-3,-1.5,0,1.5])
+        plt.xticks([-5,-3,-1,1])
 
 
     if i[0] == 3:
@@ -87,15 +88,32 @@ for i in enumerate(properties):
 plt.show()
 
 
-[frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac("STELLAR_SIGMA_1RE",
-df_manga,df_mc)
+[frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac_Ha("log_SFR_SF", df_manga,df_mc)
 
+
+sigma = errorbar_prop.sum(axis = 0)
+print(sigma.shape)
+print(frac_prop_manga)
+print(frac_prop_mc)
+
+print(agn.get_chi2(frac_prop_mc, frac_prop_manga,sigma))
+
+
+
+'''
+[frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac_Ha("sSFR",
+df_manga,df_mc)
 masses = prop_mc
 fracs_mc = np.log10(frac_prop_mc)
 
-print(fracs_mc)
 frac_manga = np.log10(frac_prop_manga)
 
 print(frac_manga)
+diff = (fracs_mc[1:] - frac_manga[1:])
+
+rms = ((diff**2).sum()/len(diff))**0.5
+
+print(rms)
+'''
 
 

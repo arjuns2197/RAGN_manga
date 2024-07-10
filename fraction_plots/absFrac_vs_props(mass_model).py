@@ -23,8 +23,8 @@ from scipy.special import betainc
 from scipy.optimize import curve_fit
 
 correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6731.pkl")
-mcmc_samples = np.load("..\mcmc_output.npz")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
+mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_mass_final.npz")
 samples = mcmc_samples['flat_samples']
 
 alpha0s = samples[:,0]
@@ -33,22 +33,23 @@ lamstars = samples[:,2]
 log_mins = samples[:,3]
 
 
-inds_alps = np.where((alpha0s > 2.09) & (alpha0s < 2.27))
-inds_bets = np.where((betas > -6.29) & (betas < -5.68))
-inds_lamstars = np.where((lamstars > 0.48) & (lamstars < 0.74))
-inds_mins = np.where((log_mins > -4.74) & (lamstars < -4.31))
+inds_alps = np.where((alpha0s > 1.89) & (alpha0s < 2.11))
+inds_bets = np.where((betas > -5.30) & (betas < -4.71))
+inds_lamstars = np.where((lamstars > 0.01) & (lamstars < 0.02))
+inds_mins = np.where((log_mins > -5.95) & (lamstars < -5.38))
 
 alpha0s = alpha0s[inds_alps]
 betas = betas[inds_alps]
 lamstars = lamstars[inds_alps]
 log_mins = log_mins[inds_alps]
 
-inputs = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass.npz')
+inputs = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass_final.npz')
 
 alpha_0 = inputs['alpha_0']
 beta = inputs['beta']
 lambda_star = inputs['lambda_star']
 log_lambda_min = inputs['log_lambda_min']
+
 
 def get_abs_agn_frac(model_parms,lambda_c): # Input exact column name as in Dataframe (str)
  
@@ -58,7 +59,7 @@ def get_abs_agn_frac(model_parms,lambda_c): # Input exact column name as in Data
 
   Inputs column name of property, manga dataframe, model dataframe,'''
 
-  nbins = 1000
+  nbins = 100
 
   [alpha_0,beta,lambda_star,log_lambda_min] = model_parms
 
@@ -107,19 +108,22 @@ def get_absF_with_ebars(model_parms,lambda_c):
 
   return [frac, prop_center,ebars]
 
-'''
+
 abs_fracs = []
-
 prop_array = [ 'log_SFR_ssp', 'sSFR', 'log_Mass','STELLAR_SIGMA_1RE']
-
 for i in prop_array:
   abs_fracs.append(get_absF_with_ebars(
+  [alpha_0,beta,lambda_star,log_lambda_min],-3))
+
+np.savez_compressed("../AGN_FIRST_files/results/frac/absF_lamc_1e-3.npz",abs_fracs = abs_fracs, allow_pickle = True)
+
+abs_fracs_lamc_minus2 = []
+prop_array = [ 'log_SFR_ssp', 'sSFR', 'log_Mass','STELLAR_SIGMA_1RE']
+for i in prop_array:
+  abs_fracs_lamc_minus2.append(get_absF_with_ebars(
   [alpha_0,beta,lambda_star,log_lambda_min],-2))
 
-np.savez_compressed("../AGN_FIRST_files/results/frac/absF_lamc_0.01.npz",abs_fracs = abs_fracs, allow_pickle = True)
-
-'''
-
+np.savez_compressed("../AGN_FIRST_files/results/frac/absF_lamc_1e-2.npz",abs_fracs = abs_fracs_lamc_minus2, allow_pickle = True)
 
 
 def cubic(log_m, a,b,c,d):
@@ -129,7 +133,7 @@ def cubic(log_m, a,b,c,d):
     return log_F
 
 
-optimal_parms = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass.npz')
+optimal_parms = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass_final.npz')
 
 alp_opt = optimal_parms['alpha_0']
 bet_opt = optimal_parms['beta']
@@ -138,40 +142,51 @@ log_min_opt = optimal_parms['log_lambda_min']
 
 opt_parms = [alp_opt,bet_opt,lam_opt,log_min_opt]
 
-[F_mean, log_M_mean] = agn.get_abs_agn_frac(opt_parms,-2,10)
+[F_mean, log_M_mean] = agn.get_abs_agn_frac(opt_parms,-3,10)
 popt_cubic, pcov = curve_fit(cubic,log_M_mean,np.log10(F_mean))
 p,q,r,s = popt_cubic
+print(p,q,r,s)
 y_predict_cube = cubic(log_M_mean,p,q,r,s)
 
+y_predict_old = cubic(log_M_mean,0.07,-0.77,2.44,-2.60)
 
-abs_fracc = np.load("../AGN_FIRST_files/results/frac/absF_lamc_0.01.npz",allow_pickle= True)
+
+abs_fracc = np.load("../AGN_FIRST_files/results/frac/absF_lamc_1e-3.npz",allow_pickle= True)
 abs_fracc = abs_fracc['abs_fracs']
+
+abs_fracc_minus2 = np.load("../AGN_FIRST_files/results/frac/absF_lamc_1e-2.npz",allow_pickle= True)
+abs_fracc_minus2 = abs_fracc_minus2['abs_fracs']
 
 def plot_frac(property):
 
     if property == 'log_SFR_ssp':
       [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc[0]
+      [frac_prop_mc_minus2, prop_mc_minus2, errorbar_prop_minus2] = abs_fracc_minus2[0]
 
     if property == 'sSFR':
       [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc[1]
+      [frac_prop_mc_minus2, prop_mc_minus2, errorbar_prop_minus2] = abs_fracc_minus2[1]
 
     if property == 'log_Mass':
       [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc[2]
+      [frac_prop_mc_minus2, prop_mc_minus2, errorbar_prop_minus2] = abs_fracc_minus2[2]
 
     if property == 'STELLAR_SIGMA_1RE':
       [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc[3]
+      [frac_prop_mc_minus2, prop_mc_minus2, errorbar_prop_minus2] = abs_fracc_minus2[3]
     
 
 
     #plt.errorbar(prop_mc,frac_prop_mc,yerr = errorbar_prop,c = 'k',fmt = 'H',ms = 1.5*15,capsize = 1.2*10)  
-    #plt.plot(log_M_mean,10**y_predict,linewidth = 6, c = 'k', linestyle = 'dashed',label = "Quadratic Fit")
-    plt.plot(log_M_mean,10**y_predict_cube,linewidth = 6, c = 'k', linestyle = 'dashed',label = "Cubic Fit")
-    #plt.plot(log_M_mean,10**y_predict_quartic,linewidth = 5, c = 'tab:gray', linestyle = 'dotted',label = "Quartic Fit")
-    plt.plot(prop_mc,frac_prop_mc, c = '0.4', linewidth = 4, label = r"$M_\star \rm Model~ Prediction$")
+    #plt.plot(log_M_mean,10**y_predict_cube,linewidth = 6, c = 'k', linestyle = 'dashed',label = "Cubic Fit")
+    plt.plot(log_M_mean,10**y_predict_old,linewidth = 6, c = 'r', linestyle = 'dashed',
+             label = "Panessa ERs;" + r"$\log \left(\lambda_c\right) = -2$")
+    plt.plot(prop_mc,frac_prop_mc, c = '0.4', linewidth = 4, label = r"$M_\star \rm Model~ Prediction; \log \left(\lambda_c\right) = -3$")
+    plt.plot(prop_mc_minus2,frac_prop_mc_minus2, c = 'b', linewidth = 4, label = r"$\log \left(\lambda_c\right) = -2$")
     plt.fill_between(prop_mc, frac_prop_mc - errorbar_prop[0,:], frac_prop_mc + errorbar_prop[1,:], color = '0.5', alpha = 0.5)
     plt.yscale('log')
-    plt.ylim(1e-7,1)
-    plt.yticks([1e-6,10**(-4.5),1e-3,10**(-1.5),1], labels = [-6,-4.5,-3,-1.5,0])
+    plt.ylim(10**(-5.5),0)
+    plt.yticks([10**(-4.5),1e-3,10**(-1.5),1], labels = [-4.5,-3,-1.5,0])
     plt.minorticks_off()
     plt.tick_params(axis ='y',labelsize =f)
     plt.ylabel(r"$\log_{\rm 10} ~\rm F_{\rm AGN}$", fontsize = 1.2*f)
@@ -233,5 +248,4 @@ plt.tick_params(axis ='x',labelsize =f)
 plt.xlim(9.5,12.5)
 plt.xticks([10,11,12])
 plt.legend(prop = {'size' : f})
-plt.savefig("../AGN_FIRST_files/results/Plots/frac_plots/absFrac_v_mass(mass_model).png", dpi = 250)
 plt.show()

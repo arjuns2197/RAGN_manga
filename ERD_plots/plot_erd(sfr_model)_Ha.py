@@ -24,14 +24,14 @@ log_lambda_max = 1
 
 # Load dataframes
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_w1000.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/sfr_model/df_mc_sfr_Ha_w1000.pkl")
 w = 1000 #mc_results['w'] # ratio of montcarlo sample size to manga sample size
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6731.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_Ha.pkl")
 
 # load galaxy properties
 
 ## Monte Carlo
-sfr_mc = df_mc['log_SFR_ssp']
+sfr_mc = df_mc['log_SFR_SF']
 z_mc = df_mc['nsa_redshift']
 Lr_mc = df_mc["Lr"]
 er_mc = df_mc["ER"]
@@ -41,9 +41,11 @@ mass_mc = df_mc['log_Mass']
 
 ind_agn_det_mc = df_mc['agn flux detectable'].to_numpy(dtype=bool)
 
+plt.scatter(mass_mc[ind_agn_det_mc],Lr_mc[ind_agn_det_mc])
+plt.show()
 ## Real
 
-sfr_manga = df_manga['log_SFR_ssp']
+sfr_manga = df_manga['log_SFR_SF']
 z_manga = df_manga['nsa_redshift']
 Lr_manga = df_manga["Lr"]
 er_manga = df_manga["ER"]
@@ -72,6 +74,7 @@ def bin_property(property, nbins, df):
 
   sorted_df_prop = df.sort_values(by = [property])
   binned_df_prop = pd.cut(sorted_df_prop[property], bins= nbins)
+  print(binned_df_prop)
   sorted_df_prop['bin_prop'] = binned_df_prop
   grped_df_prop = sorted_df_prop.groupby(["bin_prop"], as_index = True)
 
@@ -144,24 +147,11 @@ def pois_errbrs(mu):
 
   return np.array([ebar_low, ebar_high])
 
-def chi_sq(real,mc):
-
-  chi2 = []
-
-  for i in range(len(mc)):
-
-    if mc[i] > 0:
-
-      chi2.append((real[i]-mc[i])**2/mc[i])
-  
-  chi2 = np.array(chi2)
-
-  return chi2.sum()
 
 
 def plot_erd_bin(property): 
 
-  if property == "log_SFR_ssp":
+  if property == "log_SFR_SF":
     prop_label = "SFR"
 
   elif property == "sSFR":
@@ -189,20 +179,12 @@ def plot_erd_bin(property):
   high_mc, bins_high_mc = np.histogram(erd_prop_mc[1], bins = bin_locs, weights= np.ones(len(erd_prop_mc[1]))/w)
   bins_high_mc = 0.5*(bins_high_mc[:-1] + bins_high_mc[1:])
 
-
-  '''print("Beginning of ", prop_label)
-  chi2_low = chi_sq(low_real,low_mc)
-  print("Chi square low Q",chi2_low)
-  chi2_high = chi_sq(high_real,high_mc)
-  print("Chi square high Q",chi2_high)
-  print("End of ", prop_label)'''
-
   low_bin_ebars = []
   high_bin_ebars = []
 
   for i in range(len(low_mc)):
 
-    if low_mc[i] < 0.3: #0.3
+    if low_mc[i] < 0.001: #0.3
 
       low_mc[i] = 0
 
@@ -225,7 +207,21 @@ def plot_erd_bin(property):
 
   low_bin_ebars = [low_bin_ebars_lows, low_bin_ebars_highs]
   high_bin_ebars = [high_bin_ebars_lows, high_bin_ebars_highs]
-  
+
+  low_bin_ebars = np.array(low_bin_ebars)
+  high_bin_ebars = np.array(high_bin_ebars)
+
+  sigma_low = low_bin_ebars.sum(axis = 0)
+  sigma_high = high_bin_ebars.sum(axis = 0)
+
+  print("Beginning of ", prop_label)
+  chi2_low = agn.get_chi2(low_real,low_mc, sigma_low)
+  print("Chi square low Q",chi2_low)
+  chi2_high = agn.get_chi2(high_real,high_mc, sigma_high)
+  print("Chi square high Q",chi2_high)
+  print("Total Chi sqaure of" + prop_label, chi2_low + chi2_high)
+  print("End of ", prop_label)
+
   print("low real",low_real)
 
   plt.plot(bins_low_real,np.log10(low_real), label = "Observation" + " (low "+ prop_label+")", linewidth = 1.5*4, c = 'k')
@@ -236,7 +232,13 @@ def plot_erd_bin(property):
   plt.plot(bins_high_real,np.log10(high_real), label = "Observation" + " (high "+prop_label+")",linewidth = 1.5*4, c= 'tab:gray')
   plt.plot(bins_high_mc,np.log10(high_mc) ,label = "Model" + " (high "+prop_label+")" ,linestyle = "--",linewidth = 1.5*4, c= 'tab:gray')
   plt.errorbar(x = bins_high_mc, y = np.log10(high_mc), yerr = high_bin_ebars, fmt = 'H', c= "tab:gray", linewidth = 3, capsize = 5)
-  plt.legend(prop = {'size' : 15})
+  plt.legend(prop = {'size' : 15}, handlelength = 3)
+
+  inds_non_zero = np.nonzero(low_real)
+  low_real_non_zero = low_real[inds_non_zero]
+
+  if len(low_real_non_zero) == 1:
+    plt.scatter(bins_low_real,np.log10(low_real), c = 'k', marker = '_', linewidth = 1.5*4, s = 150)
 
   if property == "log_Mass":
     annotation = r"$M_{\star}$"
@@ -244,7 +246,7 @@ def plot_erd_bin(property):
   elif property == "STELLAR_SIGMA_1RE":
     annotation = r"$\sigma_{\rm v}$"
 
-  elif property == "log_SFR_ssp":
+  elif property == "log_SFR_SF":
     annotation = r"$\rm SFR$"
   
   else:
@@ -253,10 +255,10 @@ def plot_erd_bin(property):
   plt.annotate(annotation,(-3,2.5), fontsize = 1.5*30)
   
 
-plt.figure(figsize = (7.2,8))
-plt.suptitle(r"$\rm M_\star$ Model", fontsize = f)
+plt.figure(figsize = (10,10))
+plt.suptitle("SFR Model", fontsize = f)
 
-properties = ["log_Mass","STELLAR_SIGMA_1RE","log_SFR_ssp", "sSFR"]
+properties = ["log_Mass","STELLAR_SIGMA_1RE","log_SFR_SF", "sSFR"]
 
 plt.subplots_adjust(hspace = 0, wspace = 0)
 
@@ -284,5 +286,6 @@ for i in enumerate(properties):
     plt.xlabel(r"$\log_{\rm 10}(\lambda)$", fontsize = f)
 
   plot_erd_bin(i[1])
+
 
 plt.show()

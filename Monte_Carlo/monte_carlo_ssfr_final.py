@@ -23,8 +23,10 @@ import cProfile
 from astropy.table import Column
 import time
 
-df_manga = pd.read_pickle('../AGN_FIRST_files/data/df_matched_6255_Ha.pkl')
-inputs = np.load('../AGN_FIRST_files/results/MLE/vd_model/mle_vd_Ha.npz')
+log_lambda_max = 1
+
+df_manga = pd.read_pickle('../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl')
+inputs = np.load('../AGN_FIRST_files/results/MLE/ssfr_model/mle_ssfr_final.npz')
 
 alpha_0 = inputs['alpha_0']
 beta = inputs['beta']
@@ -47,11 +49,11 @@ random_ER = []
 w = 1000
 
 start = time.time()
-for i in range(len(vd)):
+for i in range(len(sfr)):
 
-    sch = agn.schechter(a= log_lambda_min , b= 1.7 ,alpha_0 = alpha_0, beta = beta,
-    lambda_star = lambda_star,log_lambda_min= log_lambda_min,prop = vd[i],
-    property_string = "STELLAR_SIGMA_1RE")
+    sch = agn.schechter(a= log_lambda_min , b= log_lambda_max ,alpha_0 = alpha_0, beta = beta,
+    lambda_star = lambda_star,log_lambda_min= log_lambda_min,prop = ssfr[i],
+    property_string = "sSFR")
 
     sample = sch.rvs(size = w)
     random_ER.append(sample)
@@ -69,9 +71,10 @@ for i in random_ER:
 random_ER = np.array(temp)
 random_ER = 10**random_ER
 
-vd_large = agn.get_large(vd, w)
+
 sfr_large = agn.get_large(sfr, w)
 z_large = agn.get_large(z,w)
+vd_large = agn.get_large(vd, w)
 
 stellar_mass_large = agn.get_large(mass, w)
 ssfr_large = agn.get_large(ssfr,w)
@@ -81,11 +84,10 @@ Edd_Lumi_large = agn.get_L_Edd(vd_large)
 L_sfr_scatter = np.random.normal(scale = 0.28 ,size = len(mass)*w)
 Lr_sf = agn.Lsfr_interp(sfr_large) + L_sfr_scatter
 
-bolo_agn = (random_ER)*Edd_Lumi_large
-Lx_agn = np.log10(bolo_agn/20)
-Lr_large = np.log10(10**Lr_sf + 10**((Lx_agn-7.1)/0.925))
+pcav_agn = np.log10((random_ER)*Edd_Lumi_large)
+Lr_large = np.log10(10**Lr_sf + 10**agn.get_Lr_pcav(pcav_agn))
 
-random_ER_total = agn.get_ER(vd_large,Lr_large)
+random_ER_total = agn.get_er_pcav(Lr_large, vd_large)
 
 radio_detectable = agn.vector_flux_detected(sfr_large,Lr_large,z_large,check_agn = False)
 agn_exists = agn.vector_is_agn(sfr_large,Lr_large)
@@ -112,8 +114,8 @@ plt.show()
 dict = {"log_SFR_SF": sfr_large, "nsa_redshift": z_large, "log_Mass" : stellar_mass_large,
 "Lr" : Lr_large, "ER" : random_ER_total, "sSFR": ssfr_large, "is agn": agn_exists,
 "flux detectable": radio_detectable, "agn flux detectable" : agn_detectable,
-"STELLAR_SIGMA_1RE" : vd_large, "ESWEIGHT" : es_weights_large,"detected_nagn":detected_nagn,
-"L_lim": L_lim,  "er_lim": er_lim} #,"plateifu" : plateifu
+"ESWEIGHT" : es_weights_large,"detected_nagn":detected_nagn,
+"L_lim": L_lim,  "er_lim": er_lim, "STELLAR_SIGMA_1RE": vd_large}
 
-df_mc_vd = pd.DataFrame(dict)
-df_mc_vd.to_pickle("../AGN_FIRST_files/results/MC/vd_model/df_mc_vd_Ha_w1000.pkl")
+df_mc_mass = pd.DataFrame(dict)
+df_mc_mass.to_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_final_w1000.pkl")

@@ -26,7 +26,7 @@ log_lambda_max = 1
 
 # Load Results
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_w1_Ha.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_Ha_w1.pkl")
 df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_Ha.pkl")
 
 

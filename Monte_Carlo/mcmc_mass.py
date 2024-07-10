@@ -21,9 +21,9 @@ log_lambda_max = 2
 start = time.time()
 
 interp_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
-df_matched = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6731.pkl")
+df_matched = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
 
-inputs = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass.npz')
+inputs = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass_final.npz')
 
 alpha_0 = inputs['alpha_0']
 beta = inputs['beta']
@@ -47,7 +47,7 @@ if type(Lr) != np.ndarray:
     Lr = Lr.to_numpy()
 
 
-sfr = df_matched['log_SFR_ssp']
+sfr = df_matched['log_SFR_SF']
 if type(sfr) != np.ndarray:
     sfr = sfr.to_numpy()
   
@@ -84,8 +84,8 @@ ssfr_non_agn = np.log10(10**sfr_non_agn/10**mass_non_agn)
 volw_agn = vol_weights[ind_agn]
 volw_non_agn = np.delete(vol_weights, ind_agn)
 
-lambda_lim_non_agn = agn.get_ER_lim_agn(vd_non_agn,z_non_agn,sfr_non_agn)
-lambda_agn = df_matched["ER"][ind_agn]
+lambda_lim_non_agn = agn.get_ER_lim_agn_cav(vd_non_agn,z_non_agn,sfr_non_agn)
+lambda_agn = df_matched["ER_cav"][ind_agn]
 
 
 def ln_p_sch(theta,property,correction_integ_obj): # Likelihood Function
@@ -94,7 +94,7 @@ def ln_p_sch(theta,property,correction_integ_obj): # Likelihood Function
         prop_agn = mass_agn
         prop_non_agn = mass_non_agn
     
-    if property == "log_SFR_ssp":
+    if property == "log_SFR_SF":
         prop_agn = sfr_agn
         prop_non_agn = sfr_non_agn
 
@@ -160,7 +160,7 @@ def ln_p_sch(theta,property,correction_integ_obj): # Likelihood Function
 def log_prior(theta):
     alpha_0, beta, lambda_star,log_lambda_min = theta
 
-    if 2 < alpha_0 < 2.6 and -6.5 < beta < -5.5 and 0.1 < lambda_star < 1.2 and -4.8 < log_lambda_min < -4.26:
+    if 1.6 < alpha_0 < 2.3 and -5.5 < beta < -4.5 and 7e-3 < lambda_star < 0.1 and -6.5 < log_lambda_min < -4.5:
         return 0.0
 
     return -np.inf
@@ -230,4 +230,4 @@ for i in range(ndim):
 end = time.time()
 
 print(end/60-start/60)
-np.savez_compressed("../AGN_FIRST_files/results/MC/mass_model/mcmc_output.npz", flat_samples = flat_samples)
+np.savez_compressed("../AGN_FIRST_files/results/MCMC/mcmc_mass_final.npz", flat_samples = flat_samples)

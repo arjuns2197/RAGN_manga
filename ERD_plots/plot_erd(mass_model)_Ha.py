@@ -24,9 +24,10 @@ log_lambda_max = 1
 
 # Load dataframes
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_w1000_Ha.pkl")
+
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_final_w1000.pkl")
 w = 1000 #mc_results['w'] # ratio of montcarlo sample size to manga sample size
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_Ha.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
 
 # load galaxy properties
 
@@ -48,7 +49,7 @@ plt.show()
 sfr_manga = df_manga['log_SFR_SF']
 z_manga = df_manga['nsa_redshift']
 Lr_manga = df_manga["Lr"]
-er_manga = df_manga["ER"]
+er_manga = df_manga["ER_cav"]
 ssfr_manga = df_manga['sSFR']
 mass_manga = df_manga['log_Mass']
 
@@ -59,14 +60,11 @@ ind_agn_det_manga = df_manga['agn flux detectable'].to_numpy(dtype=bool)
 ind_dets_mc = df_mc["agn flux detectable"].to_numpy(dtype= bool)
 
 
-
+print(np.log10(df_manga["ER_cav"][ind_agn_det_manga]).min())
 bin_min = -4 #(This is the lowest value of detected ER across the MC samples) #df_mc["Random ER"][ind_dets_mc].min()
-bin_max = np.log10(df_manga["ER"][ind_agn_det_manga]).max()
+bin_max = np.log10(df_manga["ER_cav"][ind_agn_det_manga]).max()
 
 bin_locs = np.linspace(bin_min, bin_max, 6)
-
-print("Hiiiiiiiiiiiiiiiiiii",np.log10(df_manga["ER"][ind_agn_det_manga].min()))
-print("Hiiiiiiiiiiiiiiiiiii",np.log10(df_mc["ER"][ind_agn_det_mc].min()))
 
 # Sort properties into bins
 
@@ -74,6 +72,7 @@ def bin_property(property, nbins, df):
 
   sorted_df_prop = df.sort_values(by = [property])
   binned_df_prop = pd.cut(sorted_df_prop[property], bins= nbins)
+  #print(binned_df_prop)
   sorted_df_prop['bin_prop'] = binned_df_prop
   grped_df_prop = sorted_df_prop.groupby(["bin_prop"], as_index = True)
 
@@ -100,7 +99,7 @@ def erd_bins(property, nbins):
 
     
       ind_agn = group["agn flux detectable"].to_numpy(bool)
-      detected_agn = np.log10(group["ER"][ind_agn].to_numpy())
+      detected_agn = np.log10(group["ER_cav"][ind_agn].to_numpy())
 
       hists_prop.append(detected_agn)
 
@@ -146,19 +145,6 @@ def pois_errbrs(mu):
 
   return np.array([ebar_low, ebar_high])
 
-def chi_sq(real,mc):
-
-  chi2 = []
-
-  for i in range(len(mc)):
-
-    if mc[i] > 0:
-
-      chi2.append((real[i]-mc[i])**2/mc[i])
-  
-  chi2 = np.array(chi2)
-
-  return chi2.sum()
 
 
 def plot_erd_bin(property): 
@@ -182,6 +168,10 @@ def plot_erd_bin(property):
 
   low_real, bins_low_real = np.histogram(erd_prop_real[0], bins = bin_locs)
   bins_low_real = 0.5*(bins_low_real[:-1] + bins_low_real[1:])
+
+  if property == "log_Mass":
+    print(bins_low_real, low_real)
+
   high_real, bins_high_real = np.histogram(erd_prop_real[1], bins = bin_locs)
   bins_high_real = 0.5*(bins_high_real[:-1] + bins_high_real[1:])
 
@@ -191,20 +181,12 @@ def plot_erd_bin(property):
   high_mc, bins_high_mc = np.histogram(erd_prop_mc[1], bins = bin_locs, weights= np.ones(len(erd_prop_mc[1]))/w)
   bins_high_mc = 0.5*(bins_high_mc[:-1] + bins_high_mc[1:])
 
-
-  '''print("Beginning of ", prop_label)
-  chi2_low = chi_sq(low_real,low_mc)
-  print("Chi square low Q",chi2_low)
-  chi2_high = chi_sq(high_real,high_mc)
-  print("Chi square high Q",chi2_high)
-  print("End of ", prop_label)'''
-
   low_bin_ebars = []
   high_bin_ebars = []
 
   for i in range(len(low_mc)):
 
-    if low_mc[i] < 0.3: #0.3
+    if low_mc[i] < 0.001: #0.3
 
       low_mc[i] = 0
 
@@ -227,9 +209,25 @@ def plot_erd_bin(property):
 
   low_bin_ebars = [low_bin_ebars_lows, low_bin_ebars_highs]
   high_bin_ebars = [high_bin_ebars_lows, high_bin_ebars_highs]
-  
-  print("low real",low_real)
 
+  low_bin_ebars = np.array(low_bin_ebars)
+  high_bin_ebars = np.array(high_bin_ebars)
+
+  sigma_low = low_bin_ebars.sum(axis = 0)
+  sigma_high = high_bin_ebars.sum(axis = 0)
+
+  '''
+  Note: The error bars have to be converted into linear space for this to work. Just change it in the "pois_errbrs" function.
+  
+  print("Beginning of ", prop_label)
+  chi2_low = agn.get_chi2(low_real,low_mc, sigma_low)
+  print("Chi square low Q",chi2_low)
+  chi2_high = agn.get_chi2(high_real,high_mc, sigma_high)
+  print("Chi square high Q",chi2_high)
+  print("Total Chi sqaure of" + prop_label, chi2_low + chi2_high)
+  print("End of ", prop_label)
+  '''
+    
   plt.plot(bins_low_real,np.log10(low_real), label = "Observation" + " (low "+ prop_label+")", linewidth = 1.5*4, c = 'k')
   plt.plot(bins_low_mc,np.log10(low_mc), label = "Model" + " (low "+prop_label+")", linestyle = "--",linewidth = 1.5*4, c= 'k')
   plt.errorbar(x = bins_low_mc, y = np.log10(low_mc), yerr = low_bin_ebars, fmt = 'H', c = "k", linewidth = 3, capsize = 5)
@@ -238,7 +236,13 @@ def plot_erd_bin(property):
   plt.plot(bins_high_real,np.log10(high_real), label = "Observation" + " (high "+prop_label+")",linewidth = 1.5*4, c= 'tab:gray')
   plt.plot(bins_high_mc,np.log10(high_mc) ,label = "Model" + " (high "+prop_label+")" ,linestyle = "--",linewidth = 1.5*4, c= 'tab:gray')
   plt.errorbar(x = bins_high_mc, y = np.log10(high_mc), yerr = high_bin_ebars, fmt = 'H', c= "tab:gray", linewidth = 3, capsize = 5)
-  plt.legend(prop = {'size' : 15})
+  plt.legend(prop = {'size' : 15}, handlelength = 3)
+
+  inds_non_zero = np.nonzero(low_real)
+  low_real_non_zero = low_real[inds_non_zero]
+
+  if len(low_real_non_zero) == 1:
+    plt.scatter(bins_low_real,np.log10(low_real), c = 'k', marker = '_', linewidth = 1.5*4, s = 150)
 
   if property == "log_Mass":
     annotation = r"$M_{\star}$"
@@ -247,10 +251,10 @@ def plot_erd_bin(property):
     annotation = r"$\sigma_{\rm v}$"
 
   elif property == "log_SFR_SF":
-    annotation = r"$\rm SFR_{H\alpha}$"
+    annotation = r"$\rm SFR$"
   
   else:
-    annotation = r"$\rm sSFR_{H\alpha}$"
+    annotation = r"$\rm sSFR$"
 
   plt.annotate(annotation,(-3,2.5), fontsize = 1.5*30)
   

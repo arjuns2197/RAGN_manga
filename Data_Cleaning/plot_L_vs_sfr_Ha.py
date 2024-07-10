@@ -62,5 +62,4 @@ plt.xlabel(r"$\log_{\rm 10}\left(\rm SFR/\rm M_{\odot}~yr^{\rm -1}\right)$", fon
 plt.ylim(37,42)
 plt.xlim(-5,2)
 plt.legend(prop = {'size':20})
-plt.savefig("../AGN_FIRST_files/results/plots/L_vs_SFR/L_vs_SFR_Ha(agn_cut).pdf")
 plt.show()

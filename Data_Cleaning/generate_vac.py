@@ -294,13 +294,13 @@ def load_drpall_data():
 
   data_drpall = Table(data_drpall)
   
-  data_drpall['log_sfr_ssp'] = -999*np.ones(len(data_drpall['objra']))
-  data_drpall['log_sfr_ssp'][inds_drp] = data_pipe3d_all['log_sfr_ssp'][inds_pipe]
+  data_drpall['log_sfr_sf'] = -999*np.ones(len(data_drpall['objra']))
+  data_drpall['log_sfr_sf'][inds_drp] = data_pipe3d_all['log_sfr_sf'][inds_pipe]
 
   data_drpall['log_mass'] = -999*np.ones(len(data_drpall['objra']))
   data_drpall['log_mass'][inds_drp] = data_pipe3d_all['log_mass'][inds_pipe]
 
-  ssfr = np.log10(10**data_drpall['log_sfr_ssp'][inds_drp]/10**data_drpall['log_mass'][inds_drp])
+  ssfr = np.log10(10**data_drpall['log_sfr_sf'][inds_drp]/10**data_drpall['log_mass'][inds_drp])
 
   data_drpall['log_ssfr'] = -999*np.ones(len(data_drpall['objra']))
   data_drpall['log_ssfr'][inds_drp] = ssfr
@@ -435,7 +435,7 @@ def load_df_vac():
 
   for i in range(10261):
     agn.delete_unrelated_flux_3_1(df_drpall,i)
-    
+
   for i in range(10261):
     agn.delete_unrelated_nvss_flux_vi(df_drpall,i)
 
@@ -479,8 +479,8 @@ def load_df_vac():
   common_pifu, inds_pipe, inds_drp = np.intersect1d(plateifu_pipe,
   plateifu_drp,return_indices = True)
 
-  sfr_pipe = data_drpall['log_sfr_ssp']
-  df_drpall['log_SFR_ssp'] = sfr_pipe
+  sfr_pipe = data_drpall['log_sfr_sf']
+  df_drpall['log_SFR_SF'] = sfr_pipe
 
   sigma_pipe = data_drpall['log_stellar_sigma_1re']
   df_drpall['STELLAR_SIGMA_1RE'] = sigma_pipe
@@ -497,22 +497,22 @@ def load_df_vac():
   Lr[inds_radio_dets] = agn.get_radio(flux[inds_radio_dets],z[inds_radio_dets])
   df_drpall['Lr'] = Lr
 
-  log_ER = -999*np.ones(10261)
-  log_ER[inds_radio_dets] = np.log10(agn.get_ER(sigma_pipe[inds_radio_dets],Lr[inds_radio_dets]))
-  df_drpall['ER'] = log_ER
-
   is_agn = np.zeros(10261, dtype = bool)
   is_agn[inds_drp] = agn.vector_is_agn(sfr_pipe[inds_drp],Lr[inds_drp])
   df_drpall['is_agn'] = is_agn
 
-  plt.scatter(sfr_pipe[inds_radio_dets],Lr[inds_radio_dets])
+  log_ER = -999*np.ones(10261)
+  log_ER[is_agn] = np.log10(agn.get_ER(sigma_pipe[is_agn],Lr[is_agn]))
+  df_drpall['ER'] = log_ER
+
+  plt.scatter(sfr_pipe[is_agn],Lr[is_agn])
   plt.show()
   
   agn_flux_detectable = np.zeros(10261, dtype = bool)
   agn_flux_detectable[inds_drp] = agn.vector_flux_detected(sfr_pipe[inds_drp],Lr[inds_drp],z[inds_drp],check_agn = True)
   df_drpall['agn flux detectable'] = agn_flux_detectable
 
-  data_pipe_erd = agn.load_pipe_data()
+  data_pipe_erd = agn.load_pipe_data_Ha()
   plateifu_pipe_erd = data_pipe_erd['plateifu'] 
 
   common_pifu_erd, inds_pipe_erd, inds_drp_erd = np.intersect1d(plateifu_pipe_erd,
@@ -590,35 +590,36 @@ def load_df_vac():
   c3 = fits.Column(name='ra', array= ra, format = 'D')
   c4 = fits.Column(name='dec', array= dec, format = 'D')
   c5 = fits.Column(name='fint', array= flux_with_dummy_value, format = 'D')
-  c6 = fits.Column(name='log_lr', array= Lr, format = 'D')
-  c7 = fits.Column(name='is_detected_agn', array= is_agn, format = 'L')
+  c6 = fits.Column(name='fint_error', array= flux_error_with_dummy_value, format = 'D')
+  c7 = fits.Column(name='log_lr', array= Lr, format = 'D')
   c8 = fits.Column(name='radio_class', array= radio_class, format = 'I')
   c9 = fits.Column(name='num_nvss_3m', array= num_nvss_matches3m, format = 'I')
   c10 = fits.Column(name='ras_nvss_3m', array= ra_nvss3m_flat, format = '6D')
   c11 = fits.Column(name='decs_nvss_3m', array= dec_nvss3m_flat, format = '6D')
   c12 = fits.Column(name='inds_nvss_3m', array= nvss_match_inds3m_flat, format = '6K')
   c13 = fits.Column(name='fluxes_nvss_3m', array= flux_nvss3m_flat, format = '6D')
-  c14 = fits.Column(name='num_first_30s', array= num_first_matches30s, format = 'I')
-  c15 = fits.Column(name='ras_first_30s', array= ra_first30s_flat, format = '5D')
-  c16 = fits.Column(name='decs_first_30s', array= dec_first30s_flat, format = '5D')
-  c17 = fits.Column(name='inds_first_30s', array= first_match_inds30s_flat, format = '5K')
-  c18 = fits.Column(name='fluxes_first_30s', array= flux_first30s_flat, format = '5D')
-  c19 = fits.Column(name='log_sfr_ssp', array= sfr_pipe, format = 'D')
-  c20 = fits.Column(name='log_ssfr', array= ssfr_pipe, format = 'D')
-  c21 = fits.Column(name='log_mass', array= stel_mass_pipe, format = 'D')
-  c22 = fits.Column(name='log_stellar_sigma_1re', array= sigma_pipe, format = 'D')
-  c23 = fits.Column(name='nsa_redshift', array= z, format = 'D')
-  c24 = fits.Column(name='log_lr_limit', array= Lr_lim_flux, format = 'D')
-  c25 = fits.Column(name='log_lr_agn_thresh', array= Lr_agn_thresh, format = 'D')
-  c26 = fits.Column(name='in_erd_analysis', array= in_erd_analysis, format = 'L')
-  c27 = fits.Column(name='flux_errors_nvss_3m', array= flux_nvss3m_error, format = '6D')
-  c28 = fits.Column(name='fint_error', array= flux_error_with_dummy_value, format = 'D')
-  c29 = fits.Column(name='log_er', array= log_ER, format = 'D')
+  c14 = fits.Column(name='flux_errors_nvss_3m', array= flux_nvss3m_error, format = '6D')
+  c15 = fits.Column(name='num_first_30s', array= num_first_matches30s, format = 'I')
+  c16 = fits.Column(name='ras_first_30s', array= ra_first30s_flat, format = '5D')
+  c17 = fits.Column(name='decs_first_30s', array= dec_first30s_flat, format = '5D')
+  c18 = fits.Column(name='inds_first_30s', array= first_match_inds30s_flat, format = '5K')
+  c19 = fits.Column(name='fluxes_first_30s', array= flux_first30s_flat, format = '5D')
+  c20 = fits.Column(name='in_erd_analysis', array= in_erd_analysis, format = 'L')
+  c21 = fits.Column(name='is_detected_agn', array= is_agn, format = 'L')
+  c22 = fits.Column(name='log_er', array= log_ER, format = 'D')
+  c23 = fits.Column(name='log_sfr_sf', array= sfr_pipe, format = 'D')
+  c24 = fits.Column(name='log_ssfr', array= ssfr_pipe, format = 'D')
+  c25 = fits.Column(name='log_mass', array= stel_mass_pipe, format = 'D')
+  c26 = fits.Column(name='log_stellar_sigma_1re', array= sigma_pipe, format = 'D')
+  c27 = fits.Column(name='nsa_redshift', array= z, format = 'D')
+  c28 = fits.Column(name='log_lr_limit', array= Lr_lim_flux, format = 'D')
+  c29 = fits.Column(name='log_lr_agn_thresh', array= Lr_agn_thresh, format = 'D')
+  
                     
   t = fits.BinTableHDU.from_columns([c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,
   c13,c14,c15,c16,c17,c18,c19,c20,c21,c22,c23,c24,c25,c26,c27,c28,c29])
 
-  t.writeto('../AGN_FIRST_files/results/VAC/VAC.fits', overwrite = True)
+  t.writeto('../AGN_FIRST_files/results/VAC/manga_radio_vac_1.0.fits', overwrite = True)
 
   return df_drpall
 
@@ -636,7 +637,7 @@ inds_erd = df['in_erd_analysis']
 f = df['fint'][inds_erd]
 f_err = df['fint_error'][inds_erd]
 
-print(df['Flux FIRST(30s)'][inds_erd][-2])
+print(df['fluxes_first_30s'][inds_erd][-2])
 plt.scatter(f,f_err)
 plt.show()
 

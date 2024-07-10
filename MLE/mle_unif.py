@@ -25,13 +25,15 @@ from astropy.table import Column
 
 correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
 
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6731.pkl")
+#df_manga = agn.load_matched_df_new_ERs()
+#df_manga.to_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
 
 
-unif_model_para = agn.mle_prop(None,df_manga,correc_obj,False)
-alpha_0, beta, lambda_star, log_lambda_min = unif_model_para
+mass_model_para = agn.mle_prop_new_ers(None,df_manga,correc_obj,False)
+alpha_0, beta, lambda_star, log_lambda_min = mass_model_para
 
 print(alpha_0,beta, lambda_star,log_lambda_min)
 
 ### Save Results
-np.savez_compressed('../AGN_FIRST_files/results/MLE/unif_model/mle_unif.npz',alpha_0 = alpha_0, beta = beta, lambda_star = lambda_star,log_lambda_min = log_lambda_min)
+np.savez_compressed('../AGN_FIRST_files/results/MLE/unif_model/mle_unif_final.npz',alpha_0 = alpha_0, beta = beta, lambda_star = lambda_star,log_lambda_min = log_lambda_min)
