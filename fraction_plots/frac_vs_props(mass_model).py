@@ -21,8 +21,8 @@ from astropy.table import Column
 from astropy.table import Table
 log_lambda_max = 1.7
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/unif_model/df_mc_unif_Ha_w1000.pkl")
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_Ha.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_final_w1000.pkl")
 
 
 def plot_frac(property):
@@ -42,7 +42,7 @@ def plot_frac(property):
 
 f = 30
 plt.figure(figsize = (7.2,8))
-plt.suptitle("Uniform Model", fontsize = f)
+plt.suptitle(r"$\rm M_\star$ Model", fontsize = f)
 
 properties = ["log_Mass","STELLAR_SIGMA_1RE","log_SFR_SF","sSFR"]
 
@@ -87,13 +87,19 @@ for i in enumerate(properties):
 plt.show()
 
 
-[frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac("log_Mass", df_manga,df_mc)
+[frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac_Ha("sSFR",
+df_manga,df_mc)
+masses = prop_mc
+fracs_mc = np.log10(frac_prop_mc)
 
-sigma = errorbar_prop.sum(axis = 0)
-print(sigma.shape)
+frac_manga = np.log10(frac_prop_manga)
+
+print(frac_manga)
+diff = (fracs_mc[1:] - frac_manga[1:])
+
+rms = ((diff**2).sum()/len(diff))**0.5
+
+print(rms)
 
 
-print(frac_prop_manga)
-print(frac_prop_mc)
 
-print(agn.get_chi2(frac_prop_mc[1:], frac_prop_manga[1:],sigma[1:])/3)

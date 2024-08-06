@@ -25,7 +25,7 @@ log_lambda_max = 1
 # Load dataframes
 
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_final_w1000.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/vd_model/df_mc_vd_final_w1000.pkl")
 w = 1000 #mc_results['w'] # ratio of montcarlo sample size to manga sample size
 df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
 
@@ -61,7 +61,7 @@ ind_dets_mc = df_mc["agn flux detectable"].to_numpy(dtype= bool)
 
 
 print(np.log10(df_manga["ER_cav"][ind_agn_det_manga]).min())
-bin_min = -4 #(This is the lowest value of detected ER across the MC samples) #df_mc["Random ER"][ind_dets_mc].min()
+bin_min = -5.25 #(This is the lowest value of detected ER across the MC samples) #df_mc["Random ER"][ind_dets_mc].min()
 bin_max = np.log10(df_manga["ER_cav"][ind_agn_det_manga]).max()
 
 bin_locs = np.linspace(bin_min, bin_max, 6)
@@ -231,7 +231,7 @@ def plot_erd_bin(property):
   plt.plot(bins_low_real,np.log10(low_real), label = "Observation" + " (low "+ prop_label+")", linewidth = 1.5*4, c = 'k')
   plt.plot(bins_low_mc,np.log10(low_mc), label = "Model" + " (low "+prop_label+")", linestyle = "--",linewidth = 1.5*4, c= 'k')
   plt.errorbar(x = bins_low_mc, y = np.log10(low_mc), yerr = low_bin_ebars, fmt = 'H', c = "k", linewidth = 3, capsize = 5)
-  plt.xlim(-4,2)
+  plt.xlim(-6,1)
   plt.ylim(-0.5,3.5)
   plt.plot(bins_high_real,np.log10(high_real), label = "Observation" + " (high "+prop_label+")",linewidth = 1.5*4, c= 'tab:gray')
   plt.plot(bins_high_mc,np.log10(high_mc) ,label = "Model" + " (high "+prop_label+")" ,linestyle = "--",linewidth = 1.5*4, c= 'tab:gray')
@@ -256,11 +256,11 @@ def plot_erd_bin(property):
   else:
     annotation = r"$\rm sSFR$"
 
-  plt.annotate(annotation,(-3,2.5), fontsize = 1.5*30)
+  plt.annotate(annotation,(-4.5,2.5), fontsize = 1.5*30)
   
 
 plt.figure(figsize = (10,10))
-plt.suptitle(r"$\rm M_\star$ Model", fontsize = f)
+plt.suptitle(r"$\sigma_v$ Model", fontsize = f)
 
 properties = ["log_Mass","STELLAR_SIGMA_1RE","log_SFR_SF", "sSFR"]
 
@@ -281,11 +281,11 @@ for i in enumerate(properties):
 
   if i[0] == 0 or i[0] == 1:
 
-    plt.xticks([-3,-2,-1,0,1])
+    plt.xticks([-5,-4,-3,-2,-1,0])
     plt.tick_params(axis ='x',labelsize =0, length = 8)
         
   if i[0] == 2 or i[0] == 3:
-    plt.xticks([-3,-2,-1,0,1])
+    plt.xticks([-5,-4,-3,-2,-1,0])
     plt.tick_params(axis ='x',labelsize =f, length = 8)
     plt.xlabel(r"$\log_{\rm 10}(\lambda)$", fontsize = f)
 

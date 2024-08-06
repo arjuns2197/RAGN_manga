@@ -261,6 +261,7 @@ def sort_subarrays(df,catalog,array):
   return new_array
 
 
+
 def load_drpall_data():
 
   path_drpall = "../AGN_FIRST_files/data/drpall-v3_1_1.fits"
@@ -317,7 +318,6 @@ def load_drpall_data():
   data_drpall['log_stellar_sigma_1re'][inds_drp] = np.log10(data_dap['STELLAR_SIGMA_1RE'][inds_dap])
 
   return data_drpall
-
 
 
 
@@ -502,21 +502,22 @@ def load_df_vac():
   df_drpall['is_agn'] = is_agn
 
   log_ER = -999*np.ones(10261)
-  log_ER[is_agn] = np.log10(agn.get_ER(sigma_pipe[is_agn],Lr[is_agn]))
+  log_ER[is_agn] = np.log10(agn.get_er_pcav(Lr[is_agn], sigma_pipe[is_agn]))
   df_drpall['ER'] = log_ER
 
-  plt.scatter(sfr_pipe[is_agn],Lr[is_agn])
-  plt.show()
-  
+
   agn_flux_detectable = np.zeros(10261, dtype = bool)
   agn_flux_detectable[inds_drp] = agn.vector_flux_detected(sfr_pipe[inds_drp],Lr[inds_drp],z[inds_drp],check_agn = True)
   df_drpall['agn flux detectable'] = agn_flux_detectable
 
-  data_pipe_erd = agn.load_pipe_data_Ha()
+  data_pipe_erd = agn.load_pipe_data()
   plateifu_pipe_erd = data_pipe_erd['plateifu'] 
 
   common_pifu_erd, inds_pipe_erd, inds_drp_erd = np.intersect1d(plateifu_pipe_erd,
   plateifu_drp,return_indices = True)
+
+  print("Hiiiiiii\nHiiiiiiii\nHiiiii\nHiiiiiii\n")
+  print("Lennnnnnnnnnnnnnnn",len(common_pifu_erd))
 
   Lr_lim_flux = -999*np.ones(10261)
   Lr_lim_flux[inds_drp_erd] = agn.get_L_lim(z[inds_drp_erd])
@@ -589,31 +590,31 @@ def load_df_vac():
   c2 = fits.Column(name='plateifu', array= plateifu, format = '32A')
   c3 = fits.Column(name='ra', array= ra, format = 'D')
   c4 = fits.Column(name='dec', array= dec, format = 'D')
-  c5 = fits.Column(name='fint', array= flux_with_dummy_value, format = 'D')
-  c6 = fits.Column(name='fint_error', array= flux_error_with_dummy_value, format = 'D')
-  c7 = fits.Column(name='log_lr', array= Lr, format = 'D')
+  c5 = fits.Column(name='fint', array= flux_with_dummy_value, format = 'E')
+  c6 = fits.Column(name='fint_error', array= flux_error_with_dummy_value, format = 'E')
+  c7 = fits.Column(name='log_lr', array= Lr, format = 'E')
   c8 = fits.Column(name='radio_class', array= radio_class, format = 'I')
   c9 = fits.Column(name='num_nvss_3m', array= num_nvss_matches3m, format = 'I')
   c10 = fits.Column(name='ras_nvss_3m', array= ra_nvss3m_flat, format = '6D')
   c11 = fits.Column(name='decs_nvss_3m', array= dec_nvss3m_flat, format = '6D')
   c12 = fits.Column(name='inds_nvss_3m', array= nvss_match_inds3m_flat, format = '6K')
-  c13 = fits.Column(name='fluxes_nvss_3m', array= flux_nvss3m_flat, format = '6D')
-  c14 = fits.Column(name='flux_errors_nvss_3m', array= flux_nvss3m_error, format = '6D')
+  c13 = fits.Column(name='fluxes_nvss_3m', array= flux_nvss3m_flat, format = '6E')
+  c14 = fits.Column(name='flux_errors_nvss_3m', array= flux_nvss3m_error, format = '6E')
   c15 = fits.Column(name='num_first_30s', array= num_first_matches30s, format = 'I')
   c16 = fits.Column(name='ras_first_30s', array= ra_first30s_flat, format = '5D')
   c17 = fits.Column(name='decs_first_30s', array= dec_first30s_flat, format = '5D')
   c18 = fits.Column(name='inds_first_30s', array= first_match_inds30s_flat, format = '5K')
-  c19 = fits.Column(name='fluxes_first_30s', array= flux_first30s_flat, format = '5D')
+  c19 = fits.Column(name='fluxes_first_30s', array= flux_first30s_flat, format = '5E')
   c20 = fits.Column(name='in_erd_analysis', array= in_erd_analysis, format = 'L')
   c21 = fits.Column(name='is_detected_agn', array= is_agn, format = 'L')
-  c22 = fits.Column(name='log_er', array= log_ER, format = 'D')
-  c23 = fits.Column(name='log_sfr_sf', array= sfr_pipe, format = 'D')
-  c24 = fits.Column(name='log_ssfr', array= ssfr_pipe, format = 'D')
-  c25 = fits.Column(name='log_mass', array= stel_mass_pipe, format = 'D')
-  c26 = fits.Column(name='log_stellar_sigma_1re', array= sigma_pipe, format = 'D')
-  c27 = fits.Column(name='nsa_redshift', array= z, format = 'D')
-  c28 = fits.Column(name='log_lr_limit', array= Lr_lim_flux, format = 'D')
-  c29 = fits.Column(name='log_lr_agn_thresh', array= Lr_agn_thresh, format = 'D')
+  c22 = fits.Column(name='log_er', array= log_ER, format = 'E')
+  c23 = fits.Column(name='log_sfr_sf', array= sfr_pipe, format = 'E')
+  c24 = fits.Column(name='log_ssfr', array= ssfr_pipe, format = 'E')
+  c25 = fits.Column(name='log_mass', array= stel_mass_pipe, format = 'E')
+  c26 = fits.Column(name='log_stellar_sigma_1re', array= sigma_pipe, format = 'E')
+  c27 = fits.Column(name='nsa_redshift', array= z, format = 'E')
+  c28 = fits.Column(name='log_lr_limit', array= Lr_lim_flux, format = 'E')
+  c29 = fits.Column(name='log_lr_agn_thresh', array= Lr_agn_thresh, format = 'E')
   
                     
   t = fits.BinTableHDU.from_columns([c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,
@@ -625,32 +626,16 @@ def load_df_vac():
 
 
 
-df_1 = load_df_vac()
-df_1.to_pickle("../AGN_FIRST_files/results/VAC/df_vac.pkl")
-
-df = fits.open('../AGN_FIRST_files/results/VAC/VAC.fits')[1].data
+#df = load_df_vac()
+df = pd.read_pickle("../AGN_FIRST_files/results/VAC/df_vac.pkl")
 
 
 
-inds_erd = df['in_erd_analysis']
+#df = fits.open('../AGN_FIRST_files/results/VAC/manga_radio_vac_1.0.fits')[1].data
 
-f = df['fint'][inds_erd]
-f_err = df['fint_error'][inds_erd]
+print(df.head())
+df.head().to_csv('../AGN_FIRST_files/results/VAC/example_table.csv', index=False)
 
-print(df['fluxes_first_30s'][inds_erd][-2])
-plt.scatter(f,f_err)
-plt.show()
-
-inds = np.where(df['fint'] > 0)[0]
-
-
-f = df['fint'][inds]
-f_error = df['fint_error'][inds]
-
-
-for i in range(1126):
-  if f_error[i]/f[i] < 0.03:
-    print(df['num_nvss_3m'][inds[i]])
 
 
 

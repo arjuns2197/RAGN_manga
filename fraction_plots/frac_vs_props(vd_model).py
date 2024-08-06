@@ -21,8 +21,8 @@ from astropy.table import Column
 from astropy.table import Table
 log_lambda_max = 1.7
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/vd_model/df_mc_vd_Ha_w1000.pkl")
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_Ha.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/vd_model/df_mc_vd_final_w1000.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ers.pkl")
 
 
 def plot_frac(property):

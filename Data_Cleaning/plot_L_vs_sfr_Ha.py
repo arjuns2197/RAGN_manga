@@ -24,7 +24,7 @@ from astropy.table import Column
 #df_manga = agn.load_matched_df()
 #df_manga.to_pickle("../AGN_FIRST_files/data/df_matched_6061.pkl")
 
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_Ha.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ers.pkl")
 
 Lr_manga = df_manga["Lr"] 
 sfr_manga = df_manga["log_SFR_SF"]

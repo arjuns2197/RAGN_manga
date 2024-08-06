@@ -21,8 +21,8 @@ from astropy.table import Column
 from astropy.table import Table
 log_lambda_max = 1.7
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_Ha_w1000.pkl")
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_Ha.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/sfr_model/df_mc_sfr_final_w1000.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ers.pkl")
 
 
 def plot_frac(property):
@@ -42,7 +42,7 @@ def plot_frac(property):
 
 f = 30
 plt.figure(figsize = (7.2,8))
-plt.suptitle("sSFR Model", fontsize = f)
+plt.suptitle("SFR Model", fontsize = f)
 
 properties = ["log_Mass","STELLAR_SIGMA_1RE","log_SFR_SF","sSFR"]
 

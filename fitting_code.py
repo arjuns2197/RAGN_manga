@@ -195,6 +195,34 @@ def mle_prop(model_type,df_manga,correction_integ_obj, use_volw):
 
 
 
+def schechter_prop(lamda, prop, alpha_0, beta, lambda_star, property_string):
+
+  """This is derived from the true model. This function is used while integrating the
+  model, as it allows us to vary lambda in log units. This is used only in the Monte Carlo stage of
+  the analysis"""
+
+  alpha = alpha_prop(alpha_0, prop, beta, property_string)
+
+  
+  p_Xi= np.log(10)*lambda_star*(lamda/lambda_star)**(-alpha+1)*np.exp(-lamda/lambda_star)
+   
+  return p_Xi
+
+
+def normalisation_prop(prop, alpha_0, beta,
+lambda_star,log_lambda_min, property_string):
+
+  """This is the normalisation constant for the schechter_mass() function."""
+
+  integral = integrate.quad(lambda x: schechter_prop(10**x, prop,alpha_0,beta,lambda_star,
+  property_string), log_lambda_min,log_lambda_max)[0]
+
+  return 1/integral
+
+v_norma_prop = np.vectorize(normalisation_prop)
+
+
+
 def schechter_x(x,alpha):
 
   """This is used in the likelihood function for the matches. Basically, this is the true model.
@@ -212,10 +240,8 @@ def alpha_prop(alpha_0, prop, beta,property):
 
   if property == None:
     prop_0 = 1
+    alpha = alpha_0*(prop/prop_0)**beta
 
-  elif property == "log_SFR_ssp":
-    prop_0 = 4.5
-    alpha = alpha_0*((prop + 5)/prop_0)**beta
 
   elif property == "log_SFR_SF":
     prop_0 = 6
@@ -223,21 +249,16 @@ def alpha_prop(alpha_0, prop, beta,property):
 
   elif property == "log_Mass":
     prop_0 = 10.5
+    alpha = alpha_0*(prop/prop_0)**beta
 
   elif property == "sSFR":
     prop_0 = -11.5
+    alpha = alpha_0*(prop/prop_0)**beta
 
   elif property == "STELLAR_SIGMA_1RE":
     prop_0 = 2.2
-
-  if type(property) == str:
-
-    if property[:7] != ("log_SFR"):
-    
-      alpha = alpha_0*(prop/prop_0)**beta
-
-  if property == None:
     alpha = alpha_0*(prop/prop_0)**beta
+    
 
   if type(alpha) == np.ndarray:
 

@@ -24,7 +24,7 @@ from scipy.optimize import curve_fit
 
 
 df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
-mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_mass_6255_final.npz")
+mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_mass_final.npz")
 samples = mcmc_samples['flat_samples']
 optimal_parms = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass_final.npz')
 
@@ -38,15 +38,17 @@ betas = samples[:,1]
 lamstars = samples[:,2]
 log_mins = samples[:,3]
 
-inds_alps = np.where((alpha0s > 1.89) & (alpha0s < 2.11))
-inds_bets = np.where((betas > -5.30) & (betas < -4.71))
-inds_lamstars = np.where((lamstars > 0.01) & (lamstars < 0.02))
-inds_mins = np.where((log_mins > -5.95) & (lamstars < -5.38))
+inds_alps = np.where((alpha0s > 1.89) & (alpha0s < 2.12))
+inds_bets = np.where((betas > -5.32) & (betas < -4.70))
+inds_lamstars = np.where((lamstars > 0.007) & (lamstars < 0.014))
+inds_mins = np.where((log_mins > -5.96) & (log_mins < -5.38))
 
-alpha0s = alpha0s[inds_alps]
-betas = betas[inds_alps]
-lamstars = lamstars[inds_alps]
-log_mins = log_mins[inds_alps]
+alpha0s = alpha0s[inds_lamstars]
+betas = betas[inds_lamstars]
+lamstars = lamstars[inds_lamstars]
+log_mins = log_mins[inds_lamstars]
+
+print(len(alpha0s), len(betas), len(lamstars), len(log_mins))
 
 
 def cubic(log_m, a,b,c,d):
@@ -60,7 +62,7 @@ b_array = []
 c_array = []
 d_array = []
 
-for i in range(len(alpha0s)):
+for i in range(len(lamstars)):
 
     opt_parms = [alp_opt,bet_opt,lam_opt,log_min_opt]
 
@@ -69,7 +71,6 @@ for i in range(len(alpha0s)):
     log_F_mean = np.log10(F_mean)
 
     popt_mean, pcov = curve_fit(cubic,log_M_mean,log_F_mean)
-
     print(popt_mean)
 
     alpha0 = alpha0s[i]
@@ -107,6 +108,6 @@ b = file['b_array']
 c = file['c_array']
 d = file['d_array']
 
-print(a.min(), a.max())
+print(d.min(), d.max())
 
 

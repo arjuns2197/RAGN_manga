@@ -24,6 +24,9 @@ ln_10 = np.log(10)
 log_lambda_max = 1
 len_manga = 6731
 len_manga_Ha = 6255
+
+#correc_obj = agn.correction_interp()
+#np.save("../AGN_FIRST_files/data/interp_obj.npy", correc_obj ,allow_pickle= True)
 correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
 
 
@@ -389,6 +392,63 @@ def flux_detected(sfr,Lr,z,check_agn):
 
 vector_flux_detected = np.vectorize(flux_detected)
 
+
+def is_agn_plain_cut(sfr,Lr):
+
+  '''
+  Returns --> Either True or False for a galaxy's AGN-ness
+  Inputs --> The SFR and radio luminosity of the galaxy whose AGN-ness
+  is to be determined.
+  '''
+
+  if Lr > Lsfr_interp(sfr) + 1:
+    return True
+
+  else:
+    return False
+
+
+vector_is_agn_plain_cut = np.vectorize(is_agn_plain_cut)
+
+def flux_detected_plain_cut(sfr,Lr,z,check_agn):
+
+  '''Returns an array of True values where the input radio galaxies with a given sfr, Lr and z may be detected at a specified flux limit
+  If check_agn is set to True, the function checks for an agn detection. If it is set to False, the detection
+  might be an agn or might be due to star formation'''
+
+  flux_lim = 2.5
+  
+  if check_agn == True:
+    
+    if vector_is_agn_plain_cut(sfr,Lr):
+
+      flux = get_flux(Lr,z)
+
+      if flux > flux_lim:
+      
+        return True
+      
+      else:
+        return False
+
+    else:
+      return False
+
+  if check_agn == False:
+
+    flux_1 = get_flux(Lr,z)
+
+    if flux_1 > flux_lim:
+      return True
+
+    else: 
+      return False
+
+  else:
+    return False
+
+vector_flux_detected_plain_cut = np.vectorize(flux_detected_plain_cut)
+
 #########################################################################
 
 
@@ -512,10 +572,8 @@ def alpha_prop(alpha_0, prop, beta,property):
 
   if property == None:
     prop_0 = 1
+    alpha = alpha_0*(prop/prop_0)**beta
 
-  elif property == "log_SFR_ssp":
-    prop_0 = 4.5
-    alpha = alpha_0*((prop + 5)/prop_0)**beta
 
   elif property == "log_SFR_SF":
     prop_0 = 6
@@ -523,27 +581,20 @@ def alpha_prop(alpha_0, prop, beta,property):
 
   elif property == "log_Mass":
     prop_0 = 10.5
+    alpha = alpha_0*(prop/prop_0)**beta
 
   elif property == "sSFR":
     prop_0 = -11.5
+    alpha = alpha_0*(prop/prop_0)**beta
 
   elif property == "STELLAR_SIGMA_1RE":
     prop_0 = 2.2
-
-
-  if type(property) == str:
-
-    if property[:7] != ("log_SFR"):
-    
-      alpha = alpha_0*(prop/prop_0)**beta
-
-  if property == None:
     alpha = alpha_0*(prop/prop_0)**beta
+    
 
   if type(alpha) == np.ndarray:
 
     ind_high_alpha = np.where(alpha >8)
-
     alpha[ind_high_alpha] = 8
 
     ind_low_alpha = np.where(alpha < -3)
@@ -629,181 +680,6 @@ def gamma_integ(log_min, log_max,alpha, lambda_star):
   10**log_min/lambda_star))*gamma(1-alpha)
 
   return f
-
-
-
-
-def mle_prop(model_type,df_manga,correction_integ_obj, use_volw):
-
-  '''Returns --> Model parameters alpha, beta, lamda_star and log_lambda_min after running MLE. 
-
-  Inputs --> 1) A string specifying the model type ("log_Mass" for the mass model) 
-  2) A pandas dataframe of properties of all galaxies. This can be generated using "load_matched_df()".
-  3) A file containing a grid of interpolations of integrals of the power law correction term that turns the power law into a Schecter function.
-  Use the function "correction_interp()" to generate the grid and then save it as a file that can be input here. np.save(, allow_pickle = True) works
-  well to save the file.
-  4) Set use_volw to True if you want to include the Wake weights while fitting. Set it to False otherwise. 
-  
-  '''
-  
-
-  Lr = df_manga['Lr']
-  if type(Lr) != np.ndarray:
-    Lr = Lr.to_numpy()
-
-
-  sfr = df_manga['log_SFR_ssp']
-  if type(sfr) != np.ndarray:
-    sfr = sfr.to_numpy()
-
-
-  vd_dap = df_manga['STELLAR_SIGMA_1RE']
-  if type(vd_dap) != np.ndarray:
-    vd_dap = vd_dap.to_numpy()
-
-  z = df_manga['nsa_redshift']
-  if type(z) != np.ndarray:
-    z = z.to_numpy()
-
-  mass = df_manga['log_Mass']
-  if type(mass) != np.ndarray:
-    mass = mass.to_numpy()
-
-  if use_volw == True:
-    vol_weights = df_manga['ESWEIGHT']
-    if type(vol_weights) != np.ndarray:
-      vol_weights = vol_weights.to_numpy()
-  
-  if use_volw == False:
-    vol_weights = np.ones(len(df_manga['log_Mass']))
-    if type(vol_weights) != np.ndarray:
-      vol_weights = vol_weights.to_numpy()
-
-  ind_agn = df_manga["agn flux detectable"].to_numpy(dtype= bool)
-
-  Lr_agn = Lr[ind_agn]
-  Lr_non_agn = np.delete(Lr, ind_agn)
-
-  sfr_agn = sfr[ind_agn]
-  sfr_non_agn = np.delete(sfr, ind_agn)
-
-  vd_dap_agn = vd_dap[ind_agn]
-  vd_dap_non_agn = np.delete(vd_dap, ind_agn)
-
-  z_agn = z[ind_agn]
-  z_non_agn = np.delete(z, ind_agn)
-
-  mass_agn = mass[ind_agn]
-  mass_non_agn = np.delete(mass, ind_agn)
-
-  ssfr_agn = np.log10(10**sfr_agn/10**mass_agn)
-  ssfr_non_agn = np.log10(10**sfr_non_agn/10**mass_non_agn)
-
-  volw_agn = vol_weights[ind_agn]
-  volw_non_agn = np.delete(vol_weights, ind_agn)
-
-  lambda_lim_non_agn = get_ER_lim_agn_cav(vd_dap_non_agn,z_non_agn,sfr_non_agn)
-  lambda_agn = get_er_pcav(Lr_agn,vd_dap_agn)
-
-  if model_type == None: ## To fit the uniform model. The galaxy property values are just unity.
-
-    prop_agn = np.ones(len(sfr_agn))
-    prop_non_agn = np.ones(len(sfr_non_agn))
-
-  if model_type == "log_SFR_ssp":
-
-    prop_agn = sfr_agn
-    prop_non_agn = sfr_non_agn
-
-  if model_type == "log_Mass":
-
-    prop_agn = mass_agn
-    prop_non_agn = mass_non_agn
-
-  if model_type == "STELLAR_SIGMA_1RE":
-
-    prop_agn = vd_dap_agn
-    prop_non_agn = vd_dap_non_agn
-
-  if model_type == "sSFR":
-
-    prop_agn = ssfr_agn
-    prop_non_agn = ssfr_non_agn
-
-  def ln_p_sch(theta): # Likelihood Function
-
-    alpha_0 = theta[0]
-    beta = theta[1]
-    lambda_star = theta[2]
-    log_lambda_min = theta[3]
-
-    alphas_agn = alpha_prop(alpha_0,prop_agn,beta,model_type)
-
-
-    inds_alp_lt_1 = np.where(alphas_agn < 1)
-    inds_alp_gt_1 = np.where(alphas_agn > 1)
-
-    norms_agn = np.ones(len(alphas_agn))
-
-    norms_agn[inds_alp_gt_1] = 1/(total_integral(log_lambda_min,2.2,alphas_agn[inds_alp_gt_1],
-    lambda_star,correction_integ_obj)) 
-    norms_agn[inds_alp_lt_1] = 1/(gamma_integ(log_lambda_min,2.2,alphas_agn[inds_alp_lt_1],
-    lambda_star)) 
-
-
-    likelihoods_agn = norms_agn*schechter_prop(lambda_agn,
-    prop_agn,alpha_0,beta,lambda_star,model_type)
-
-    ln_likelihood = (volw_agn*np.log(likelihoods_agn)).sum()
-
-    alphas_non_agn = alpha_prop(alpha_0,prop_non_agn,beta,model_type)
-    norms_non_agn = np.ones(len(alphas_non_agn))
-
-
-    inds_alps_lt_1 = np.where(alphas_non_agn < 1)
-    inds_alps_gt_1 = np.where(alphas_non_agn > 1)
-
-    volw_non_agn_alps_lt_1 = volw_non_agn[inds_alps_lt_1]
-    volw_non_agn_alps_gt_1 = volw_non_agn[inds_alps_gt_1]
-
-    norms_non_agn[inds_alps_gt_1] = 1/(total_integral(log_lambda_min,2.2,alphas_non_agn[inds_alps_gt_1],
-    lambda_star,correction_integ_obj)) 
-    norms_non_agn[inds_alps_lt_1] = 1/(gamma_integ(log_lambda_min,2.2,alphas_non_agn[inds_alps_lt_1],
-    lambda_star))  
-
-    likelihoods_alps_gt_1 = norms_non_agn[inds_alps_gt_1]*total_integral(log_lambda_min,
-    np.log10(lambda_lim_non_agn[inds_alps_gt_1]),alphas_non_agn[inds_alps_gt_1],lambda_star,correction_integ_obj)
-
-    
-    likelihoods_alps_lt_1 = norms_non_agn[inds_alps_lt_1]*gamma_integ(log_lambda_min,
-    np.log10(lambda_lim_non_agn[inds_alps_lt_1])
-    ,alphas_non_agn[inds_alps_lt_1],lambda_star)
-
-    ln_likelihood = ln_likelihood + (volw_non_agn_alps_gt_1*np.log(
-    likelihoods_alps_gt_1)).sum() + (volw_non_agn_alps_lt_1*np.log(likelihoods_alps_lt_1)).sum()
-
-    print(ln_likelihood)
-
-    return -ln_likelihood
-
-  from scipy.optimize import minimize
-
-  alpha0_start = 2
-  beta_start = -5
-  lambda_star_start = 0.7
-  min_start = -6
-
-  theta_start = [alpha0_start,beta_start,lambda_star_start,min_start]
-  result = minimize(ln_p_sch,theta_start, method= 'Nelder-Mead',
-  bounds = [(None,None),(None,None),(None,None),(None,None)])
-
-
-  return [result.x[0], result.x[1], result.x[2], result.x[3]]
-
-
-
-
-
 
 ##################################################
 #Identification of NVSS doubles
@@ -2926,138 +2802,6 @@ def load_pipe_data():
 
   print("Low mass removed. Remaining length:",len(data_pipe3d_all))
 
-  indices_SM_right = np.where(data_pipe3d_all['log_Mass'] > 19)
-  data_pipe3d_all = np.delete(data_pipe3d_all, indices_SM_right)
-
-  print("High mass removed. Remaining length:",len(data_pipe3d_all))
-
-  indices_sfr_left = np.where(data_pipe3d_all['log_SFR_ssp'] < -4)
-  data_pipe3d_all = np.delete(data_pipe3d_all, indices_sfr_left)
-
-  print("Low SFR removed. Remaining length:",len(data_pipe3d_all))
-
-  indices_sfr_right = np.where(data_pipe3d_all['log_SFR_ssp'] > 2.5)
-  data_pipe3d_all = np.delete(data_pipe3d_all, indices_sfr_right)
-
-  print("High SFR removed. Remaining length:",len(data_pipe3d_all))
-
-  redshifts1 = data_pipe3d_all['nsa_redshift']
-  data_pipe3d_all = np.delete(data_pipe3d_all , np.isnan(redshifts1))
-
-  print("NaN redshifts removed. Remaining length:",len(data_pipe3d_all))
-
-  data_pipe3d_all = np.delete(data_pipe3d_all , np.isnan(data_pipe3d_all['log_SFR_ssp']))
-
-  print("NaN SFR removed. Remaining length:",len(data_pipe3d_all))
-
-  ssfr = np.log10(10**data_pipe3d_all['log_SFR_ssp']/10**data_pipe3d_all["log_Mass"])
-  ind_ssfr_left = np.where(ssfr < -14 )
-
-  data_pipe3d_all = np.delete(data_pipe3d_all, ind_ssfr_left)
-
-  ssfr = np.log10(10**data_pipe3d_all['log_SFR_ssp']/10**data_pipe3d_all["log_Mass"])
-  ind_ssfr_right = np.where(ssfr > -9.5 )
-  data_pipe3d_all = np.delete(data_pipe3d_all, ind_ssfr_right)
-
-  print("sSFR outliers removed. Remaining length:",len(data_pipe3d_all))
- 
-  path_drp = "../AGN_FIRST_files/data/drpall-v3_1_1.fits"
-  data_drp = fits.open(path_drp)[1].data
-
-  plateifu_pipe = data_pipe3d_all['plateifu']
-  plateifu_drp = data_drp['PLATEIFU']
-
-  common_pifu, inds_pipe, inds_drp = np.intersect1d(plateifu_pipe,
-  plateifu_drp,return_indices = True)
-
-  data_pipe3d_all = data_pipe3d_all[inds_pipe]
-
-  data_pipe3d_all = Table(data_pipe3d_all)
-
-  data_pipe3d_all['ESWEIGHT'] = data_drp['ESWEIGHT'][inds_drp]
-  data_pipe3d_all['MNGTARG3'] = data_drp['MNGTARG3'][inds_drp]
-
-  indices_ancillary = np.where(data_pipe3d_all['MNGTARG3'] > 0)
-  data_pipe3d_all = np.delete(data_pipe3d_all, indices_ancillary)
-
-  print("Ancillary targets removed. Remaining length:",len(data_pipe3d_all))
-
-  '''
-  indices_esw = np.where(data_pipe3d_all['ESWEIGHT'] < 0)
-  data_pipe3d_all = np.delete(data_pipe3d_all, indices_esw)
-
-  print("Invalid ESWEIGHTs removed. Final length:",len(data_pipe3d_all))
-  '''
-
-  path_dap = "../AGN_FIRST_files/data/dapall-v3_1_1-3.1.0.fits"
-  data_dap = fits.open(path_dap)[1].data
-
-  plateifu_dap = data_dap['PLATEIFU']
-  plateifu_pipe = data_pipe3d_all['plateifu']
-
-  common_pifu1, inds_pipe1, inds_dap = np.intersect1d(plateifu_pipe,
-  plateifu_dap,return_indices= True)
-
-  data_pipe3d_all = data_pipe3d_all[inds_pipe1]
-  data_pipe3d_all = Table(data_pipe3d_all)
-
-  data_pipe3d_all['STELLAR_SIGMA_1RE'] = data_dap['STELLAR_SIGMA_1RE'][inds_dap]
-
-  inds_low_dap_vd = np.where(data_pipe3d_all['STELLAR_SIGMA_1RE'] < 65)
-  data_pipe3d_all = np.delete(data_pipe3d_all, inds_low_dap_vd)
-
-  print("Low sigma galaxies removed. Remaining length:",len(data_pipe3d_all))
-
-  inds_high_dap_vd = np.where(data_pipe3d_all['STELLAR_SIGMA_1RE'] > 630)
-  data_pipe3d_all = np.delete(data_pipe3d_all, inds_high_dap_vd)
-
-  print("High sigma galaxies removed. Remaining length:",len(data_pipe3d_all))
-
-  return data_pipe3d_all
-
-
-def load_pipe_data_Ha():
-
-  '''Returns --> The reduced MaNGA catalog, MaNGA and radio catalogs of the matched objects.
-  Input --> None
-
-  Loads MaNGA Pipe3D data from the SDSS website and the required columns radio catalog from a personal cloud drive. 
-  The MaNGA catalog is cleaned up by the removal of peculiar galaxies and galaxies that have the DAP and 
-  MaNGA Quality Control bits set to "1". Matches objects in the two catalogs upto a maximum separation of 2 arcsec. 
-  
-  '''
-
-
-  #url_pipe3d = 'https://data.sdss.org/sas/dr17/manga/spectro/pipe3d/v3_1_1/3.1.1/SDSS17Pipe3D_v3_1_1.fits'
-  #path_pipe3d= download_file(url_pipe3d, cache= True)
-  path_pipe3d = "../AGN_FIRST_files/data/MaNGA_catalog.fits"
-  data_pipe3d_1 = fits.open(path_pipe3d)[1].data
-
-  
-  print("Original Length",len(data_pipe3d_1))
-
-  inds_manga_doubles = [5275,1774,8691,6992,9045,6993,5006,5748,10041,5407,5893]
-  data_pipe3d_all = np.delete(data_pipe3d_1, inds_manga_doubles)
-
-  print("MaNGA doubles removed. Remaining length: ",len(data_pipe3d_all))
-
-  '''
-  indices_vd = np.where(data_pipe3d_all['vel_disp_ssp_cen'] < 65) 
-  data_pipe3d_all = np.delete(data_pipe3d_all, indices_vd)
-
-  print("Low Sigma removed. Remaining length: ",len(data_pipe3d_all))
-
-  indices_vd_right = np.where(data_pipe3d_all['vel_disp_ssp_cen'] > 630) #should be 630
-  data_pipe3d_all = np.delete(data_pipe3d_all, indices_vd_right)
-
-  print("Very high sigma removed. Remaining length:",len(data_pipe3d_all))
-  '''
-
-  indices_SM_left = np.where(data_pipe3d_all['log_Mass'] < 8)
-  data_pipe3d_all = np.delete(data_pipe3d_all, indices_SM_left)
-
-  print("Low mass removed. Remaining length:",len(data_pipe3d_all))
-
   indices_SM_right = np.where(data_pipe3d_all['log_Mass'] > 12.5)
   data_pipe3d_all = np.delete(data_pipe3d_all, indices_SM_right)
 
@@ -3160,137 +2904,13 @@ def load_pipe_data_Ha():
   return data_pipe3d_all
 
 
+
+
 def load_pipe_df():
 
 
   # load data
   data_pipe3d_all = load_pipe_data()
-
-  #url_nvss = "https://urldefense.proofpoint.com/v2/url?u=https-3A__www.dropbox.com_s_lyuy4lp2lzi5p4d_CATALOG.FIT-3Fdl-3D0&d=DwMFaQ&c=slrrB7dE8n7gBJbeO0g-IQ&r=J9TPhCTsXLU5rvH37Iir6w&m=iqahptD4Y5INWgEYix4rQqPS-qYAZmwpc7Kj0bS2Que1p58myO0ZPWeMXhMgupDZ&s=TbiwgLzBNf8Rusy5ojMbZ8Gjhsc7DWPc0gOhJZvJasw&e="
-  path_nvss = '../AGN_FIRST_files/data/nvss_full_catalog.FIT' 
-  data_nvss = fits.open(path_nvss,memmap=True)[1].data 
-
-  fints = get_integ_nvss_flux(data_nvss['MAJOR AX'], data_nvss['MINOR AX'], 45, data_nvss['PEAK INT'])
-  data_nvss = Table(data_nvss)
-  data_nvss['FINT'] = fints
-
-  fints_error = get_fint_error(data_nvss['MAJOR AX'],data_nvss['MINOR AX'],45,data_nvss['PEAK INT'],data_nvss['I RMS'])
-  data_nvss['FINT ERROR'] = fints_error
-
-  #url_first = 'https://drive.google.com/uc?export=download&id=1itAIFo_i30j9kFxOGxIPDuxuvIJXyUNm'
-  path_first = '../AGN_FIRST_files/data/FIRST.fits' 
-  data_first = fits.open(path_first,memmap=True)[1].data
-
-  c_nvss = SkyCoord(ra=data_nvss['RA(2000)']*u.degree, dec= data_nvss['DEC(2000)']*u.degree,
-  frame= 'icrs', unit='deg')
-  c_pipe3d = SkyCoord(ra=data_pipe3d_all['objra']*u.degree, dec= data_pipe3d_all['objdec']*u.degree,
-  frame= 'icrs', unit='deg') 
-  c_first = SkyCoord(ra=data_first['RA']*u.degree, dec= data_first['DEC']*u.degree,
-  frame= 'icrs', unit='deg')
-
-  #Match catalogs upto 3 arcmins
-  idx_nvss, idx_pipe3d,d2d, d3d = c_pipe3d.search_around_sky(c_nvss, 3*u.arcmin)
-  unique, counts = np.unique(idx_pipe3d, return_counts=True)  
-
-  num_nvss_matches3m = np.zeros(len(data_pipe3d_all['log_SFR_ssp']))
-  num_nvss_matches3m[unique] = counts
-
-  nvss_match_inds3m = np.zeros(len(data_pipe3d_all['log_SFR_ssp']), dtype = 'object')
-  nvss_match_inds3m = get_matching_inds(len(data_pipe3d_all['log_SFR_ssp']),idx_pipe3d,idx_nvss)
-  
-  ##FIRST 3 arcmins
-
-  idx_first, idx_pipe3d_first,d2d_first, d3d_first = c_pipe3d.search_around_sky(c_first,
-  3*u.arcmin)
-  unique_first, counts_first = np.unique(idx_pipe3d_first, return_counts=True)  
-  num_first_matches3m = np.zeros(len(data_pipe3d_all['log_SFR_ssp']))
-  num_first_matches3m[unique_first] = counts_first
-
-  first_match_inds3m = np.zeros(len(data_pipe3d_all['log_SFR_ssp']), dtype = 'object')
-  first_match_inds3m = get_matching_inds(len(data_pipe3d_all['log_SFR_ssp']),idx_pipe3d_first,
-  idx_first)
-
-  # FIRST 30 arcsec
-
-  idx_first_30s, idx_pipe3d_first_30s,d2d_first_30s, d3d_first_30s = c_pipe3d.search_around_sky(c_first,
-  30*u.arcsec)
-  unique_first_30s, counts_first_30s = np.unique(idx_pipe3d_first_30s, return_counts=True)  
-  num_first_matches30s = np.zeros(len(data_pipe3d_all['log_SFR_ssp']))
-  num_first_matches30s[unique_first_30s] = counts_first_30s
-
-  first_match_inds30s = np.zeros(len(data_pipe3d_all['log_SFR_ssp']), dtype = 'object')
-  first_match_inds30s = get_matching_inds(len(data_pipe3d_all['log_SFR_ssp']),idx_pipe3d_first_30s,
-  idx_first_30s)
-
-  # Get RA and DEC of 3 arcmin matches
-  ra_first3m = get_property_at_indices(data_first,first_match_inds3m,'RA')
-  dec_first3m = get_property_at_indices(data_first,first_match_inds3m,'DEC')
-
-  ra_first30s = get_property_at_indices(data_first,first_match_inds30s,'RA')
-  dec_first30s = get_property_at_indices(data_first,first_match_inds30s,'DEC')
-
-  ra_nvss3m = get_property_at_indices(data_nvss,nvss_match_inds3m,'RA(2000)')
-  dec_nvss3m = get_property_at_indices(data_nvss,nvss_match_inds3m,'DEC(2000)')
-
-  flux_first3m = get_property_at_indices(data_first,first_match_inds3m,'FINT')
-  flux_first30s = get_property_at_indices(data_first,first_match_inds30s,'FINT')
-  flux_nvss3m = get_property_at_indices(data_nvss,nvss_match_inds3m,'FINT')
-  flux_nvss3m_error = get_property_at_indices(data_nvss,nvss_match_inds3m,'FINT ERROR')
-
-  maj_ax_first30s = get_property_at_indices(data_first,first_match_inds30s,'MAJOR')
-  pos_ang_first30s = get_property_at_indices(data_first,first_match_inds30s,'POSANG')
-
-  sfr_pipe = data_pipe3d_all["log_SFR_ssp"]
-  ssfr_pipe = np.log10(10**data_pipe3d_all['log_SFR_ssp']/10**data_pipe3d_all['log_Mass'])
-  stel_mass_pipe = data_pipe3d_all["log_Mass"]
-  z = data_pipe3d_all["nsa_redshift"]
-  plateifu = data_pipe3d_all['plateifu']
-  ra = data_pipe3d_all["objra"]
-  dec = data_pipe3d_all["objdec"]
-  vd_dap = np.log10(data_pipe3d_all['STELLAR_SIGMA_1RE'])
-  ra_first = data_first['RA']
-  dec_first = data_first['DEC']
-  sfr_ha = data_pipe3d_all["log_SFR_Ha"]
-  log_N2_Ha = data_pipe3d_all["log_NII_Ha_cen"]
-  log_S2_Ha = data_pipe3d_all["log_SII_Ha_cen"]
-  log_O3_Hb = data_pipe3d_all["log_OIII_Hb_cen"]
-
-  es_weight = data_pipe3d_all['ESWEIGHT']  
-  ## To find matches with MaNGA in FIRST within 3 arcsec
-  [inds_manga, inds_first] = match_manga_first(ra,dec,ra_first,dec_first,3)
-
-  has_3arcsec_first_match = np.zeros(len(ra), dtype = bool)
-  has_3arcsec_first_match[inds_manga] = np.ones(len(inds_manga),
-  dtype = bool)
- 
-  galaxies_pipe = {"log_SFR_ssp":sfr_pipe, 
-  "log_Mass": stel_mass_pipe,
-  "sSFR" : ssfr_pipe
-  , "nsa_redshift": z, "RA": ra, "DEC": dec, "No. NVSS matches(3m)" : num_nvss_matches3m,
-  "Indices NVSS matches(3m)" : nvss_match_inds3m,
-  "3 arcsec FIRST match": has_3arcsec_first_match,
-  "No. FIRST matches(3m)" : num_first_matches3m,
-  "Indices FIRST matches(3m)": first_match_inds3m,"RA FIRST(3m)":ra_first3m,
-  "DEC FIRST(3m)": dec_first3m,"RA NVSS(3m)":ra_nvss3m,
-  "DEC NVSS(3m)":dec_nvss3m,"RA FIRST(30s)":ra_first30s,
-  "DEC FIRST(30s)":dec_first30s,
-  "Flux FIRST(3m)":flux_first3m,
-  "Flux FIRST(30s)":flux_first30s,"Flux NVSS(3m)":flux_nvss3m,
-  "No. FIRST matches(30s)": num_first_matches30s,"Maj FIRST(30s)": maj_ax_first30s,
-  "PA FIRST(30s)":pos_ang_first30s, "Indices FIRST matches(30s)": first_match_inds30s
-  ,"ESWEIGHT": es_weight, "plateifu": plateifu, "STELLAR_SIGMA_1RE": vd_dap,
-  "log_SFR_Ha":sfr_ha,"Flux Error NVSS(3m)" : flux_nvss3m_error,
-  "log_OIII_Hb_cen" : log_O3_Hb, "log_NII_Ha_cen" : log_N2_Ha, "log_SII_Ha_cen" : log_S2_Ha}
-
-  df_pipe = pd.DataFrame(galaxies_pipe)
-
-  return df_pipe
-
-def load_pipe_df_Ha():
-
-
-  # load data
-  data_pipe3d_all = load_pipe_data_Ha()
 
   #url_nvss = "https://urldefense.proofpoint.com/v2/url?u=https-3A__www.dropbox.com_s_lyuy4lp2lzi5p4d_CATALOG.FIT-3Fdl-3D0&d=DwMFaQ&c=slrrB7dE8n7gBJbeO0g-IQ&r=J9TPhCTsXLU5rvH37Iir6w&m=iqahptD4Y5INWgEYix4rQqPS-qYAZmwpc7Kj0bS2Que1p58myO0ZPWeMXhMgupDZ&s=TbiwgLzBNf8Rusy5ojMbZ8Gjhsc7DWPc0gOhJZvJasw&e="
   path_nvss = '../AGN_FIRST_files/data/nvss_full_catalog.FIT' 
@@ -3412,205 +3032,6 @@ def load_pipe_df_Ha():
 
   return df_pipe
 
-
-def load_matched_df():
-
-  df_pipe = load_pipe_df()
-
-
-  for i in range(len_manga):
-    delete_unrelated_flux_2_1(df_pipe,i)
-
-  for i in range(len_manga):
-    delete_unrelated_flux_3_1(df_pipe,i)
-
-  for i in range(len_manga):
-    delete_unrelated_nvss_flux_vi(df_pipe,i)
-  
-
-  radio_class = []
-
-  for i in range(len_manga):
-    if type(get_radio_class(df_pipe,i)) == str:
-
-      if is_vi_source(df_pipe, i) == True:
-        radio_class.append(classify_vi_source(df_pipe,i))
-      
-      else:
-        radio_class.append(0)
-    
-    else:
-      radio_class.append(get_radio_class(df_pipe,i))
-
-
-  radio_class = np.array(radio_class, dtype = object)
-
-  df_pipe['Radio Class'] = radio_class
-
-  flux = []
-
-  for i in range(len_manga):
-    flux.append(get_nvss_flux(df_pipe,i))
-
-  flux = np.array(flux)
-  df_pipe['Flux'] = flux
-
-  flux_error = []
-
-  for i in range(6731):
-    flux_error.append(get_nvss_flux_error(df_pipe,i))
-
-  flux_error = np.array(flux_error)
-  df_pipe['fint_error'] = flux_error
-
-  plt.hist(flux)
-  plt.show()
-
-  sigma = df_pipe['STELLAR_SIGMA_1RE'].to_numpy()
-  z = df_pipe['nsa_redshift'].to_numpy()
-  Lr = get_radio(flux,z)
-  sfr = df_pipe['log_SFR_ssp'].to_numpy()
-  ER = get_ER(sigma,Lr)
-  agn_flux_detectable = vector_flux_detected(sfr,Lr,z,check_agn = True)
-  flux_detectable = vector_flux_detected(sfr,Lr,z,check_agn = False)
-  is_agn = vector_is_agn(sfr,Lr)
-
-  df_pipe["Lr"] = Lr
-  df_pipe['agn flux detectable'] = agn_flux_detectable
-  df_pipe['ER'] = ER
-  df_pipe['flux detectable'] = flux_detectable
-  detected_nagn = flux_detectable
-  detected_nagn[is_agn] = np.zeros(len(detected_nagn[is_agn]), dtype = bool)
-  df_pipe['detected_nagn'] = detected_nagn
-
-  df_pipe['is agn'] = is_agn
-
-  L_lims = []
-
-  for i in range(len_manga):
-    if df_pipe['flux detectable'][i] == True:
-      L_lims.append(Lr[i])
-    
-    if df_pipe['flux detectable'][i] != True:
-      L_lims.append(get_L_lim(z[i]))
-
-  L_lims = np.array(L_lims)
-  df_pipe['L_lim'] = L_lims
-
-  er_lims = []
-
-  for i in range(len_manga):
-    if df_pipe['flux detectable'][i] == True:
-      er_lims.append(get_ER(sigma[i],Lr[i]))
-    
-    if df_pipe['flux detectable'][i] != True:
-      er_lims.append(get_ER_lim_z(sigma[i],z[i]))
-
-  er_lims = np.array(er_lims)
-
-  df_pipe['er_lim'] = er_lims
-
-  return df_pipe
-
-
-def load_matched_df_Ha():
-
-  df_pipe = load_pipe_df_Ha()
-
-  for i in range(len_manga_Ha):
-    delete_unrelated_flux_2_1(df_pipe,i)
-
-  for i in range(len_manga_Ha):
-    delete_unrelated_flux_3_1(df_pipe,i)
-
-  for i in range(len_manga_Ha):
-    delete_unrelated_nvss_flux_vi(df_pipe,i)
-  
-
-  radio_class = []
-
-  for i in range(len_manga_Ha):
-    if type(get_radio_class(df_pipe,i)) == str:
-
-      if is_vi_source(df_pipe, i) == True:
-        radio_class.append(classify_vi_source(df_pipe,i))
-      
-      else:
-        radio_class.append(0)
-    
-    else:
-      radio_class.append(get_radio_class(df_pipe,i))
-
-
-  radio_class = np.array(radio_class, dtype = object)
-
-  df_pipe['Radio Class'] = radio_class
-
-  flux = []
-
-  for i in range(len_manga_Ha):
-    flux.append(get_nvss_flux(df_pipe,i))
-
-  flux = np.array(flux)
-  df_pipe['Flux'] = flux
-
-  flux_error = []
-
-  for i in range(len_manga_Ha):
-    flux_error.append(get_nvss_flux_error(df_pipe,i))
-
-  flux_error = np.array(flux_error)
-  df_pipe['fint_error'] = flux_error
-
-  plt.hist(flux)
-  plt.show()
-
-  sigma = df_pipe['STELLAR_SIGMA_1RE'].to_numpy()
-  z = df_pipe['nsa_redshift'].to_numpy()
-  Lr = get_radio(flux,z)
-  sfr = df_pipe['log_SFR_SF'].to_numpy()
-  ER = get_ER(sigma,Lr)
-  agn_flux_detectable = vector_flux_detected(sfr,Lr,z,check_agn = True)
-  flux_detectable = vector_flux_detected(sfr,Lr,z,check_agn = False)
-  is_agn = vector_is_agn(sfr,Lr)
-
-  df_pipe["Lr"] = Lr
-  df_pipe['agn flux detectable'] = agn_flux_detectable
-  df_pipe['ER'] = ER
-  df_pipe['flux detectable'] = flux_detectable
-  detected_nagn = flux_detectable
-  detected_nagn[is_agn] = np.zeros(len(detected_nagn[is_agn]), dtype = bool)
-  df_pipe['detected_nagn'] = detected_nagn
-
-  df_pipe['is agn'] = is_agn
-
-  L_lims = []
-
-  for i in range(len_manga_Ha):
-    if df_pipe['flux detectable'][i] == True:
-      L_lims.append(Lr[i])
-    
-    if df_pipe['flux detectable'][i] != True:
-      L_lims.append(get_L_lim(z[i]))
-
-  L_lims = np.array(L_lims)
-  df_pipe['L_lim'] = L_lims
-
-  er_lims = []
-
-  for i in range(len_manga_Ha):
-    if df_pipe['flux detectable'][i] == True:
-      er_lims.append(get_ER(sigma[i],Lr[i]))
-    
-    if df_pipe['flux detectable'][i] != True:
-      er_lims.append(get_ER_lim_z(sigma[i],z[i]))
-
-  er_lims = np.array(er_lims)
-
-  df_pipe['er_lim'] = er_lims
-
-  return df_pipe
-
 ##############################################################
 
 
@@ -3702,112 +3123,6 @@ class schechter(rv_continuous):
     super(schechter,self).__init__(a= self.a , b = self.b , name='schechter')
 
 ##############################################
-
-
-def get_agn_frac(property,df_manga,df_mc): # Input exact column name as in Dataframe (str)
- 
-  '''Returns list of arrrays containing data-AGN-fraction as a function of required property, 
-  values of galaxy the property, model-AGN-fraction as a function of required property
-  and the errorbars on the model.
-
-  Inputs column name of property, manga dataframe, model dataframe,'''
-
-  nbins = 8 #was 8
-
-  sorted_byprop_df = df_mc.sort_values(by = [property])
-
-  binned_byprop_df = pd.cut(sorted_byprop_df[property], bins= nbins)
-
-  sorted_byprop_df['bin_prop'] = binned_byprop_df
-
-  grped_byprop_df = sorted_byprop_df.groupby(["bin_prop"])
-
-  prop_center = []
-  f_prop = []
-
-  for name, group in grped_byprop_df:
-
-
-    string = str(name)
-    split = string.split(',')
-    left = float(split[0][1:])
-    right = float(split[1][:-1])
-    center = (left + right)/2
-    prop_center.append(center)
-
-    average = group["agn flux detectable"].mean()
-    f_prop.append(average)
-
-  f_prop = np.array(f_prop)
-  prop_center = np.array(prop_center)
-
-  sorted_byprop_manga = df_manga.sort_values(by = [property])
-
-  binned_byprop_manga = pd.cut(sorted_byprop_manga[property], bins= nbins)
-
-  sorted_byprop_manga['bin prop'] = binned_byprop_manga
-
-  grped_byprop_manga = sorted_byprop_manga.groupby(["bin prop"])
-
-  prop_center_manga = []
-  frac_prop_manga = []
-  size_prop_manga = []
-
-  for name, group in grped_byprop_manga:
-    
-
-    string = str(name)
-    split = string.split(',')
-    left = float(split[0][1:])
-    right = float(split[1][:-1])
-    center = (left + right)/2
-    prop_center_manga.append(center)
-    size_prop_manga.append(len(group))
-
-    average_manga = group["agn flux detectable"].mean()
-    frac_prop_manga.append(average_manga)
-
-  frac_prop_manga = np.array(frac_prop_manga)
-  prop_center_manga = np.array(prop_center_manga)
-
-  error_low = []
-  error_high = []
-
-
-  for i in range(nbins):
-
-    exp = f_prop[i]*size_prop_manga[i]
-
-
-    xlo = 0
-    xhi = size_prop_manga[i]
-    x = np.arange(xlo,xhi,1)
-
-    
-    cdf = betainc(size_prop_manga[i]-x,x+1,1-f_prop[i])
-    indices_low = np.where(cdf > 0.16)
-
-    if cdf[0] > 0.16:
-      error_low.append(f_prop[i])
-    
-    else:
-      print(indices_low[0][0])
-      error_low.append((exp-indices_low[0][0])/size_prop_manga[i])
-
-    indices_high = np.where(cdf > 0.84)
-    if indices_high[0][0] < exp:
-      error_high.append(0)
-
-    else:
-      error_high.append((indices_high[0][0] - exp)/size_prop_manga[i])
-
-
-  error_low = np.array(error_low)
-  error_high = np.array(error_high)
-  error_bar_prop = np.array([error_low,error_high])
-  
-  
-  return [frac_prop_manga, prop_center_manga, f_prop, prop_center,error_bar_prop]
 
 
 def get_agn_frac_Ha(property,df_manga,df_mc): # Input exact column name as in Dataframe (str)
@@ -4629,9 +3944,9 @@ def get_er_pcav(Lr, vd):
   return er
 
 
-def load_matched_df_new_ERs():
+def load_matched_df():
 
-  df_pipe = load_pipe_df_Ha()
+  df_pipe = load_pipe_df()
 
   for i in range(len_manga_Ha):
     delete_unrelated_flux_2_1(df_pipe,i)
@@ -4693,6 +4008,9 @@ def load_matched_df_new_ERs():
   flux_detectable = vector_flux_detected(sfr,Lr,z,check_agn = False)
   is_agn = vector_is_agn(sfr,Lr)
 
+  agn_flux_detectable_plain = vector_flux_detected_plain_cut(sfr,Lr,z,check_agn = True)
+  is_agn_plain = vector_is_agn_plain_cut(sfr,Lr)
+
   df_pipe["Lr"] = Lr
   df_pipe['agn flux detectable'] = agn_flux_detectable
   df_pipe['ER'] = ER
@@ -4706,18 +4024,35 @@ def load_matched_df_new_ERs():
 
   df_pipe['is agn'] = is_agn
 
+  df_pipe['agn flux detectable plain'] = agn_flux_detectable_plain
+  df_pipe['is agn plain'] = is_agn_plain
+
   return df_pipe
 
 
-def get_ER_lim_agn_nt(vd,z,sfr,epsilon,c):
+def get_AGN_lim_plain(sf,L_lim):
+
+  """Returns the limiting luminosity of an AGN in the MaNGA galaxies
+  without matches in the radio catalog."""
+
+  SF_radio_lim =  Lsfr_interp(sf) + 1 # We're providing a buffer of 1 dex above the regressed line before classifying a galaxy as an AGN.
+                                          
+  L_lim_modified = L_lim
+  if SF_radio_lim > L_lim_modified:
+    L_lim_modified = SF_radio_lim
+
+  return L_lim_modified
+
+v_get_AGN_lim_plain = np.vectorize(get_AGN_lim_plain)
+
+def get_ER_lim_agn_cav_plain(vd,z,sfr):
   
   """  Returns the limiting AGN Eddington Ratio of MaNGA galaxies without radio detection. 
   Inputs the velocity dispersion and redshift of the galaxies."""
 
   lumi_lim = get_L_lim(z)
-  lumi_lim = v_get_AGN_lim(sfr,lumi_lim)
-
-  lambda_lim = get_ER_nicole_thomas(lumi_lim,vd,epsilon,c)
+  lumi_lim = v_get_AGN_lim_plain(sfr,lumi_lim)
+  lambda_lim = get_er_pcav(lumi_lim,vd)
 
   return lambda_lim
 
