@@ -32,21 +32,50 @@ import imageio as iio
 import requests
 from PIL import Image
 import matplotlib.patches as patches
+f = 45
+
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ers.pkl")
+correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
+mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_mass_final.npz") 
+samples = mcmc_samples['flat_samples']
+
+abs_fracc = np.load("../AGN_FIRST_files/results/frac/absF_lamc_1e-3_correct_ebars.npz",allow_pickle= True)
+[F_mean, log_M_mean, ebars] = abs_fracc['abs_fracs']
 
 
-file_name = '../AGN_FIRST_files/results/VAC/manga_radio_vac_1.0.fits'  # replace with your .fits file
-data = fits.open(file_name)[1].data
-data = Table(data)
-data_head = data[0:20]
-
-df = pd.DataFrame(data_head['mangaid'])
-
-for i in data_head.columns:
-
-    array = np.array(data_head[i])
-    df[i] = list(array)
-    
+def plot_frac(property):
 
 
-df.to_latex('../AGN_FIRST_files/results/VAC/example_table.tex', index = False,longtable= True, float_format="%.2f")
+    if property == 'log_Mass':
+      [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc['abs_fracs']
+
+
+    #plt.errorbar(prop_mc,frac_prop_mc,yerr = errorbar_prop,c = 'k',fmt = 'H',ms = 1.5*15,capsize = 1.2*10)  
+    #plt.plot(log_M_mean,10**y_predict_cube,linewidth = 6, c = 'k', linestyle = 'dashed',label = "Cubic Fit")
+    plt.plot(prop_mc,frac_prop_mc, c = '0.4', linewidth = 4, label = r"Absolute AGN fraction (All)")
+    plt.fill_between(prop_mc, frac_prop_mc - errorbar_prop[0,:], frac_prop_mc + errorbar_prop[1,:], color = '0.5', alpha = 0.5)
+    plt.yscale('log')
+    plt.ylim(10**(-5.5),0)
+    plt.yticks([10**(-4.5),1e-3,10**(-1.5),1], labels = [-4.5,-3,-1.5,0])
+    plt.minorticks_off()
+    plt.tick_params(axis ='y',labelsize =f)
+    plt.ylabel(r"$\log_{\rm 10}\left(~\rm AGN~ Fraction \right)$", fontsize = 1.2*f)
+    plt.legend(prop = {'size':1.5*f})
+
+
+f = 30
+
+
+plot_frac('log_Mass')
+plt.title("Accounting for Selection Effects is Important!", fontsize =30)
+plt.xlabel(r"$\log_{\rm 10}\left(\rm M_\star/ \rm ~M_\odot \right)$", fontsize = f)
+plt.tick_params(axis ='x',labelsize =f)
+plt.xlim(9.5,12.5)
+plt.xticks([10,11,12])
+plt.legend(prop = {'size' : 1.5*f})
+plt.minorticks_off()
+agn.plot_frac_sfq("log_Mass", df_manga)
+plt.show()
+
+
 

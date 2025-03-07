@@ -27,7 +27,7 @@ df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_fina
 
 def plot_frac(property):
 
-    [frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac_Ha(
+    [frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac(
         property,df_manga,df_mc)
     
     plt.scatter(prop_manga, frac_prop_manga, label = "Observation", c = 'k', s = 1.5*180)
@@ -87,7 +87,7 @@ for i in enumerate(properties):
 plt.show()
 
 
-[frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac_Ha("sSFR",
+[frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac("sSFR",
 df_manga,df_mc)
 masses = prop_mc
 fracs_mc = np.log10(frac_prop_mc)

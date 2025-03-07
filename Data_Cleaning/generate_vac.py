@@ -521,6 +521,8 @@ def load_df_vac():
 
   Lr_lim_flux = -999*np.ones(10261)
   Lr_lim_flux[inds_drp_erd] = agn.get_L_lim(z[inds_drp_erd])
+  Lr_lim_flux[inds_radio_dets] = Lr[inds_radio_dets]
+
   df_drpall['log_Lr_limit'] = Lr_lim_flux
 
   Lr_agn_thresh = -999*np.ones(10261)
@@ -597,13 +599,13 @@ def load_df_vac():
   c9 = fits.Column(name='num_nvss_3m', array= num_nvss_matches3m, format = 'I')
   c10 = fits.Column(name='ras_nvss_3m', array= ra_nvss3m_flat, format = '6D')
   c11 = fits.Column(name='decs_nvss_3m', array= dec_nvss3m_flat, format = '6D')
-  c12 = fits.Column(name='inds_nvss_3m', array= nvss_match_inds3m_flat, format = '6K')
+  c12 = fits.Column(name='inds_nvss_3m', array= nvss_match_inds3m_flat, format = '6J')
   c13 = fits.Column(name='fluxes_nvss_3m', array= flux_nvss3m_flat, format = '6E')
   c14 = fits.Column(name='flux_errors_nvss_3m', array= flux_nvss3m_error, format = '6E')
   c15 = fits.Column(name='num_first_30s', array= num_first_matches30s, format = 'I')
   c16 = fits.Column(name='ras_first_30s', array= ra_first30s_flat, format = '5D')
   c17 = fits.Column(name='decs_first_30s', array= dec_first30s_flat, format = '5D')
-  c18 = fits.Column(name='inds_first_30s', array= first_match_inds30s_flat, format = '5K')
+  c18 = fits.Column(name='inds_first_30s', array= first_match_inds30s_flat, format = '5J')
   c19 = fits.Column(name='fluxes_first_30s', array= flux_first30s_flat, format = '5E')
   c20 = fits.Column(name='in_erd_analysis', array= in_erd_analysis, format = 'L')
   c21 = fits.Column(name='is_detected_agn', array= is_agn, format = 'L')
@@ -626,7 +628,7 @@ def load_df_vac():
 
 
 
-#df = load_df_vac()
+df = load_df_vac()
 df = pd.read_pickle("../AGN_FIRST_files/results/VAC/df_vac.pkl")
 
 

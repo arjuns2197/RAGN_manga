@@ -24,13 +24,17 @@ from astropy.table import Column
 #df_manga = agn.load_matched_df()
 #df_manga.to_pickle("../AGN_FIRST_files/data/df_matched_6061.pkl")
 
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ers.pkl")
+df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
+
+
 
 Lr_manga = df_manga["Lr"] 
 sfr_manga = df_manga["log_SFR_SF"]
 lam_man = df_manga["ER"]
 ind_agn_man = df_manga["is agn"].to_numpy(dtype= bool)
 ssfr_manga = df_manga["sSFR"]
+z = df_manga['nsa_redshift'].to_numpy()
+Lr_uls = agn.get_L_lim(z)
 
 num_agn = len(np.where(ind_agn_man == True)[0])
 print("Number of AGN: ", num_agn)
@@ -50,11 +54,12 @@ agn_rcut = agn.Lsfr_interp(sfr_right) + 1
 ## Observed Lr vs SFR
 
 plt.figure(figsize =(20,10))
-plt.scatter(sfr_manga,Lr_manga, c = 'k')
+plt.scatter(sfr_manga,Lr_manga, c = 'k', s = 80, label = 'Radio Detections')
 #plt.plot(sfr_line, agn.Lsfr_interp_hopkins(sfr_line), c='k', label = "Hopkins 2003", linewidth = 4, linestyle = "--")
-plt.plot(sfr_line, agn.Lsfr_interp(sfr_line), c='k', label = "Hopkins with Chabrier Offset", linewidth = 4)
-plt.plot(sfr_left, agn_lcut, c='tab:gray', label = "AGN cut", linewidth = 10, alpha = 0.3)
-plt.plot(sfr_right, agn_rcut, c='tab:gray', linewidth = 10, alpha = 0.3)
+plt.plot(sfr_line, agn.Lsfr_interp(sfr_line), c='k',  linewidth = 4) #label = "Hopkins with Chabrier Offset"
+plt.plot(sfr_left, agn_lcut, c='k', label = "AGN cut", linewidth = 10, alpha = 0.7)
+plt.plot(sfr_right, agn_rcut, c='k', linewidth = 10, alpha = 0.7)
+plt.scatter(sfr_manga, Lr_uls, s = 70, marker = '+', alpha = 0.35, c = 'tab:gray', label = 'Radio Upper Limits')
 plt.xticks([-4.5,-3,-1.5,0,1.5],fontsize = f)
 plt.yticks([38,39,40,41], fontsize = f)
 plt.ylabel(r"$\log_{\rm 10}\left(\rm L_{\rm 1.4 ~GHz}/\rm erg~s^{\rm -1}\right)$", fontsize = f)

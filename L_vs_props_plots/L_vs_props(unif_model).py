@@ -26,7 +26,7 @@ log_lambda_max = 1
 
 # Load Results
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/unif_model/df_mc_unif_final_w1.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_final_w1.pkl")
 df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ers.pkl")
 
 
@@ -62,7 +62,7 @@ yticks = [38,39,40,41]
 xticks = [[9.5,10.5,11.5],[1.8,2.2,2.6],[-3.5,-1.5,0.5],[-15,-12.5, -10]]
 plt.figure(figsize= (7.2,8))
 plt.subplots_adjust(wspace=0,hspace =0)
-plt.suptitle("Uniform Model", fontsize = f)
+plt.suptitle("sSFR Model", fontsize = f)
 
 
 for i in enumerate(properties):

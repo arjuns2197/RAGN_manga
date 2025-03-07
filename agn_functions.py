@@ -81,6 +81,7 @@ def hopkins_sfr(Lr, Lc, intercept, dex_difference_imf):
 
   sfr = Lr - intercept - dex_difference_imf
 
+
   if Lr < 37.95:
 
     sfr = suppression_factor(Lr, Lc) + sfr
@@ -3125,7 +3126,7 @@ class schechter(rv_continuous):
 ##############################################
 
 
-def get_agn_frac_Ha(property,df_manga,df_mc): # Input exact column name as in Dataframe (str)
+def get_agn_frac(property,df_manga,df_mc): # Input exact column name as in Dataframe (str)
  
   '''Returns list of arrrays containing data-AGN-fraction as a function of required property, 
   values of galaxy the property, model-AGN-fraction as a function of required property
@@ -3266,8 +3267,8 @@ def prob_agnness(mass,alpha_0,beta,lambda_star,log_lambda_min,log_lambda_c,corre
 
 def get_absF_error(fracs,mean_frac):
 
-  frac_max = np.nanmax(fracs)
-  frac_min = np.nanmin(fracs)
+  frac_max = np.nanpercentile(fracs, 84)
+  frac_min = np.nanpercentile(fracs, 16)
 
   error_upper = np.abs(mean_frac - frac_max)
   error_lower = np.abs(mean_frac - frac_min)
@@ -3284,7 +3285,7 @@ def get_abs_agn_frac(model_parms,lambda_c, mass_low): # Input exact column name 
 
   Inputs column name of property, manga dataframe, model dataframe,'''
 
-  nbins = 800
+  nbins = 100
 
   [alpha_0,beta,lambda_star,log_lambda_min] = model_parms
 
@@ -4251,3 +4252,92 @@ def get_Lr_pcav(pcav):
   log_Lr = (pcav - 13.91)/0.75
 
   return log_Lr
+
+
+def get_agn_frac_sfq(property,df_manga): # Input exact column name as in Dataframe (str)
+ 
+  '''Returns list of arrrays containing data-AGN-fraction as a function of required property, 
+  values of galaxy the property, model-AGN-fraction as a function of required property
+  and the errorbars on the model.
+
+  Inputs column name of property, manga dataframe, model dataframe,'''
+
+  nbins = 8 #was 8
+
+  sorted_byprop_manga = df_manga.sort_values(by = [property])
+
+  binned_byprop_manga = pd.cut(sorted_byprop_manga[property], bins= nbins)
+
+  sorted_byprop_manga['bin prop'] = binned_byprop_manga
+
+  grped_byprop_manga = sorted_byprop_manga.groupby(["bin prop"])
+
+  prop_center_manga = []
+  frac_prop_manga = []
+  size_prop_manga = []
+
+  frac_sf = []
+  frac_q = []
+
+  for name, group in grped_byprop_manga:
+    
+
+    string = str(name)
+    split = string.split(',')
+    left = float(split[0][1:])
+    right = float(split[1][:-1])
+    center = (left + right)/2
+    prop_center_manga.append(center)
+    size_prop_manga.append(len(group))
+
+    average_manga = group["agn flux detectable"].mean()
+    frac_prop_manga.append(average_manga)
+
+    condition_sf = group['sSFR'] > -11.25
+    average_sf_manga = group["agn flux detectable"][condition_sf].mean()
+    frac_sf.append(average_sf_manga)
+
+    print(len(group["agn flux detectable"][condition_sf]))
+
+    condition_q = group['sSFR'] < -11.25
+    average_q_manga = group["agn flux detectable"][condition_q].mean()
+    frac_q.append(average_q_manga)
+
+    print(len(group["agn flux detectable"][condition_q]))
+
+
+
+  size_prop_manga = np.array(size_prop_manga)
+  frac_prop_manga = np.array(frac_prop_manga)
+  prop_center_manga = np.array(prop_center_manga)
+  frac_q = np.array(frac_q)
+  frac_sf = np.array(frac_sf)
+  
+
+  return [frac_prop_manga, prop_center_manga, frac_q , frac_sf]
+
+
+
+def plot_frac_sfq(property, df_manga):
+
+  [frac_prop_manga, prop_center_manga, frac_q , frac_sf] = get_agn_frac_sfq(
+  property,df_manga)
+  
+  prop_center_manga_finite_sf = prop_center_manga[frac_sf > 10**-4]
+  frac_sf_finite = frac_sf[frac_sf > 10**-5]
+  
+  prop_center_manga_finite_q = prop_center_manga[frac_q > 10**-4]
+  frac_q_finite = frac_q[frac_q > 10**-5]
+
+  #plt.scatter(prop_center_manga, frac_prop_manga, label = "Observation", c = 'k', s = 1.5*180)
+  plt.scatter(prop_center_manga_finite_sf, frac_sf_finite, label = "Detected AGN fraction (Star Forming)", c = 'royalblue', s = 1.5*180, alpha = 0.6)
+  plt.scatter(prop_center_manga_finite_q, frac_q_finite, label = "Detected AGN fraction (Quenched)", c = 'tab:red', s = 1.5*180, alpha= 0.6)
+  plt.plot(prop_center_manga_finite_q, frac_q_finite, c = 'tab:red', linewidth = 2)
+  plt.plot(prop_center_manga_finite_sf, frac_sf_finite, c = 'royalblue', linewidth = 2)
+  plt.legend(prop = {'size' : 1.5*15})
+  plt.yscale('log')
+  plt.ylim(7e-6,1.5)
+  plt.yticks([1e-5,1e-4,1e-3,1e-2,1e-1,1], labels = [-5,-4,-3,-2,-1,0])
+  plt.tick_params(axis ='y',labelsize =30)
+  plt.minorticks_off()
+  #plt.ylabel(r"$\log_{\rm 10} ~\rm f_{\rm AGN}$", fontsize = 1.2*30)

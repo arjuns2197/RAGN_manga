@@ -24,10 +24,10 @@ from scipy.optimize import curve_fit
 
 correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
 df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
-mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_mass_final.npz")
+mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_mass_final.npz") 
 samples = mcmc_samples['flat_samples']
 
-"""
+
 def get_abs_agn_frac(model_parms,lambda_c): # Input exact column name as in Dataframe (str)
  
   '''Returns list of arrrays containing data-AGN-fraction as a function of required property, 
@@ -58,6 +58,7 @@ def get_abs_agn_frac(model_parms,lambda_c): # Input exact column name as in Data
 def get_absF_with_ebars(model_parms,lambda_c):
 
   [frac, prop_center] = get_abs_agn_frac(model_parms,lambda_c)
+  print(frac.shape)
   fracs_all = []
 
   for i in range(len(betas)):
@@ -66,6 +67,9 @@ def get_absF_with_ebars(model_parms,lambda_c):
     [alpha0s[i],betas[i],lamstars[i],log_mins[i]],lambda_c)[0])
   
   fracs_all = np.array(fracs_all)
+  frac = np.nanmean(np.log10(fracs_all), axis = 0)
+  frac = 10**frac
+  print(frac.shape)
 
   lbs = []
   ubs = []
@@ -86,23 +90,15 @@ def get_absF_with_ebars(model_parms,lambda_c):
   return [frac, prop_center,ebars]
 
 
-
-
 alpha0s = samples[:,0]
 betas = samples[:,1]
 lamstars = samples[:,2]
 log_mins = samples[:,3]
 
-
-inds_alps = np.where((alpha0s > 1.89) & (alpha0s < 2.12))
-inds_bets = np.where((betas > -5.32) & (betas < -4.70))
-inds_lamstars = np.where((lamstars > 0.007) & (lamstars < 0.014))
-inds_mins = np.where((log_mins > -5.96) & (lamstars < -5.38))
-
-alpha0s = alpha0s[inds_alps]
-betas = betas[inds_alps]
-lamstars = lamstars[inds_alps]
-log_mins = log_mins[inds_alps]
+alpha0s = alpha0s
+betas = betas
+lamstars = lamstars
+log_mins = log_mins
 
 inputs = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass_final.npz')
 
@@ -111,16 +107,10 @@ beta = inputs['beta']
 lambda_star = inputs['lambda_star']
 log_lambda_min = inputs['log_lambda_min']
 
+abs_fracs = get_absF_with_ebars([alpha_0,beta,lambda_star,log_lambda_min],-3)
 
+np.savez_compressed("../AGN_FIRST_files/results/frac/absF_lamc_1e-3_correct_ebars.npz",abs_fracs = abs_fracs, allow_pickle = True)
 
-abs_fracs = []
-prop_array = [ 'log_SFR_ssp', 'sSFR', 'log_Mass','STELLAR_SIGMA_1RE']
-for i in prop_array:
-  abs_fracs.append(get_absF_with_ebars(
-  [alpha_0,beta,lambda_star,log_lambda_min],-3))
-
-np.savez_compressed("../AGN_FIRST_files/results/frac/absF_lamc_1e-3.npz",abs_fracs = abs_fracs, allow_pickle = True)
-"""
 
 def cubic(log_m, a,b,c,d):
     
@@ -128,49 +118,26 @@ def cubic(log_m, a,b,c,d):
 
     return log_F
 
+abs_fracc = np.load("../AGN_FIRST_files/results/frac/absF_lamc_1e-3_correct_ebars.npz",allow_pickle= True)
+[F_mean, log_M_mean, ebars] = abs_fracc['abs_fracs']
 
-
-optimal_parms = np.load('../AGN_FIRST_files/results/MLE/mass_model/mle_mass_final.npz')
-
-alp_opt = optimal_parms['alpha_0']
-bet_opt = optimal_parms['beta']
-lam_opt = optimal_parms['lambda_star']
-log_min_opt = optimal_parms['log_lambda_min']
-
-opt_parms = [alp_opt,bet_opt,lam_opt,log_min_opt]
-
-[F_mean, log_M_mean] = agn.get_abs_agn_frac(opt_parms,-3,10)
 popt_cubic, pcov = curve_fit(cubic,log_M_mean,np.log10(F_mean))
 p,q,r,s = popt_cubic
+
+print(p,q,r,s)
 y_predict_cube = cubic(log_M_mean,p,q,r,s)
-
-
-
-abs_fracc = np.load("../AGN_FIRST_files/results/frac/absF_lamc_1e-3.npz",allow_pickle= True)
-abs_fracc = abs_fracc['abs_fracs']
 
 
 
 def plot_frac(property):
 
-    if property == 'log_SFR_ssp':
-      [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc[0]
-
-    if property == 'sSFR':
-      [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc[1]
-
 
     if property == 'log_Mass':
-      [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc[2]
-
-
-    if property == 'STELLAR_SIGMA_1RE':
-      [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc[3]
-    
+      [frac_prop_mc, prop_mc, errorbar_prop] = abs_fracc['abs_fracs']
 
 
     #plt.errorbar(prop_mc,frac_prop_mc,yerr = errorbar_prop,c = 'k',fmt = 'H',ms = 1.5*15,capsize = 1.2*10)  
-    plt.plot(log_M_mean,10**y_predict_cube,linewidth = 6, c = 'k', linestyle = 'dashed',label = "Cubic Fit")
+    #plt.plot(log_M_mean,10**y_predict_cube,linewidth = 6, c = 'k', linestyle = 'dashed',label = "Cubic Fit")
     plt.plot(prop_mc,frac_prop_mc, c = '0.4', linewidth = 4, label = r"$M_\star \rm Model~ Prediction$")
     plt.fill_between(prop_mc, frac_prop_mc - errorbar_prop[0,:], frac_prop_mc + errorbar_prop[1,:], color = '0.5', alpha = 0.5)
     plt.yscale('log')

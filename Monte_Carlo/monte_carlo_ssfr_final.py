@@ -46,7 +46,7 @@ plateifu = df_manga['plateifu']
 
 random_ER = []
 
-w = 1000
+w = 1
 
 start = time.time()
 for i in range(len(sfr)):
@@ -118,4 +118,4 @@ dict = {"log_SFR_SF": sfr_large, "nsa_redshift": z_large, "log_Mass" : stellar_m
 "L_lim": L_lim,  "er_lim": er_lim, "STELLAR_SIGMA_1RE": vd_large}
 
 df_mc_mass = pd.DataFrame(dict)
-df_mc_mass.to_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_final_w1000.pkl")
+df_mc_mass.to_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_final_w1.pkl")

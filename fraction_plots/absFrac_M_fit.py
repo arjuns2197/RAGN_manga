@@ -22,7 +22,13 @@ from astropy.table import Column
 from scipy.special import betainc
 from scipy.optimize import curve_fit
 
+def cubic(log_m, a,b,c,d):
+    
+    log_F = a*(log_m -10.5)**3 + b*(log_m-10.5)**2 + c*(log_m-10.5) + d
 
+    return log_F
+
+"""
 df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
 mcmc_samples = np.load("../AGN_FIRST_files/results/MCMC/mcmc_mass_final.npz")
 samples = mcmc_samples['flat_samples']
@@ -38,24 +44,14 @@ betas = samples[:,1]
 lamstars = samples[:,2]
 log_mins = samples[:,3]
 
-inds_alps = np.where((alpha0s > 1.89) & (alpha0s < 2.12))
-inds_bets = np.where((betas > -5.32) & (betas < -4.70))
-inds_lamstars = np.where((lamstars > 0.007) & (lamstars < 0.014))
-inds_mins = np.where((log_mins > -5.96) & (log_mins < -5.38))
+alpha0s = alpha0s
+betas = betas
+lamstars = lamstars
+log_mins = log_mins
 
-alpha0s = alpha0s[inds_lamstars]
-betas = betas[inds_lamstars]
-lamstars = lamstars[inds_lamstars]
-log_mins = log_mins[inds_lamstars]
 
 print(len(alpha0s), len(betas), len(lamstars), len(log_mins))
 
-
-def cubic(log_m, a,b,c,d):
-    
-    log_F = a*(log_m -10.5)**3 + b*(log_m-10.5)**2 + c*(log_m-10.5) + d
-
-    return log_F
 
 a_array = []
 b_array = []
@@ -71,7 +67,6 @@ for i in range(len(lamstars)):
     log_F_mean = np.log10(F_mean)
 
     popt_mean, pcov = curve_fit(cubic,log_M_mean,log_F_mean)
-    print(popt_mean)
 
     alpha0 = alpha0s[i]
     beta = betas[i]
@@ -80,9 +75,14 @@ for i in range(len(lamstars)):
 
     model_parms = [alpha0,beta,lambda_star,log_lambda_min]
 
+    print(model_parms)
+
     [F,log_M] = agn.get_abs_agn_frac(model_parms,-3,10)
 
     log_F = np.log10(F)
+
+    if np.isnan(log_F).any() == True:
+        continue
 
     popt, pcov = curve_fit(cubic, log_M, log_F)
     [a,b,c,d] = popt
@@ -99,8 +99,7 @@ d_array = np.array(d_array)
 
 np.savez_compressed("../AGN_FIRST_files/results/frac/abs_F_fit.npz", a_array = a_array,
 b_array = b_array, c_array = c_array, d_array = d_array)
-
-
+"""
 
 file = np.load("../AGN_FIRST_files/results/frac/abs_F_fit.npz")
 a = file['a_array']
@@ -108,6 +107,40 @@ b = file['b_array']
 c = file['c_array']
 d = file['d_array']
 
-print(d.min(), d.max())
+
+model_parms = np.array([a,b,c,d])
+mean = model_parms.mean(axis = 1)
+covar_matrix = np.cov(model_parms)
+
+print("True mean", mean)
+print("True covar:", covar_matrix)
+
+
+gen_model_parms = np.random.multivariate_normal(mean, covar_matrix, size = 100000)
+
+mean_gen = gen_model_parms.T.mean(axis= 1)
+covar_matrix_gen = np.cov(gen_model_parms.T)
+
+print("\n")
+print("Test fit mean:", mean_gen)
+print("Test fit covar:",covar_matrix_gen)
+
+log_Ms = np.linspace(10, 12, 100)
+
+for i in gen_model_parms:
+
+    a3, a2, a1, a0 = i
+    log_F = cubic(log_Ms, a3, a2, a1, a0)
+
+    plt.plot(log_Ms, log_F, c = 'tab:gray', linewidth = 0.5)
+
+a3, a2, a1, a0 = mean
+log_F = cubic(log_Ms, a3, a2, a1, a0)
+
+plt.plot(log_Ms, log_F, c = 'k', linestyle = '--', linewidth = 3)
+plt.show()
+
+
+
 
 
