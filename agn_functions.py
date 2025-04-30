@@ -3134,7 +3134,7 @@ def get_agn_frac(property,df_manga,df_mc): # Input exact column name as in Dataf
 
   Inputs column name of property, manga dataframe, model dataframe,'''
 
-  nbins = 8 #was 8
+  nbins = 4 #was 8
 
   sorted_byprop_df = df_mc.sort_values(by = [property])
 
