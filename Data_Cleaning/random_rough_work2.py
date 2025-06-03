@@ -1,45 +1,46 @@
+from pdb import line_prefix
+import numpy as np
+import matplotlib.pyplot as plt
+
 import sys
 sys.path.append("..")
 from AGN_FIRST_code import agn_functions as agn
 
-
-import numpy as np
+from scipy.special import gammaincc
+import astropy
 from astropy.io import fits
 from astropy.utils.data import download_file
-import matplotlib.pyplot as plt
-from astropy import units as u
-from astropy.coordinates import SkyCoord
-from astropy.cosmology import WMAP9 as cosmo
-from sklearn.linear_model import LinearRegression
-import scipy.integrate as integrate
+from astropy.table import vstack
 import pandas as pd
-import scipy
-from scipy.stats import norm
-from scipy import ndimage
+from scipy import integrate
 from scipy import interpolate
-import cProfile
-from astropy.table import Column
+import emcee
+import time
+#log_lambda_max = 2
 
-#correc_obj = agn.correction_interp()
-#np.save("../AGN_FIRST_files/data/interp_obj.npy", correc_obj ,allow_pickle= True)
+galaxy_type = 'q'
+bin_num = 2
+
 
 correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
-df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
+path = "../AGN_FIRST_files/data/df_M_ssfr_bins/df_" + galaxy_type + str(bin_num) + ".pkl"
+df = pd.read_pickle(path)
 
-inds_sf = np.where(df_manga['sSFR'] > -11.5)[0]
-inds_q =np.where(df_manga['sSFR'] < -11.5)[0]
+vd = df['STELLAR_SIGMA_1RE'].to_numpy()
+Lr = df['Lr'].to_numpy()
+z = df['nsa_redshift'].to_numpy()
+sfr = df['log_SFR_SF'].to_numpy()
+is_agn = df['agn flux detectable'].to_numpy(dtype = bool)
 
-plt.scatter(df_manga['log_Mass'][inds_sf], df_manga['log_SFR_SF'][inds_sf], alpha = 0.2, c = 'b')
-plt.scatter(df_manga['log_Mass'][inds_q], df_manga['log_SFR_SF'][inds_q], alpha = 0.2, c = 'r')
-plt.show()
 
+lambda_lims = agn.get_ER_lim_agn_cav(vd, z, sfr)
+lambdas = agn.vector_er_pcav_check_agn(Lr, vd, is_agn)
 
-# df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/mass_model/df_mc_mass_q_w100.pkl")
+log_lambda_lims = np.log10(lambda_lims)
+log_lambdas = np.log10(lambdas)
 
-# inds_low_mass_agn = np.where(df_mc['agn flux detectable'] & (df_mc['log_Mass'] < 10))[0]
+inds_lt_minus3 = log_lambda_lims < -3
 
-# print(df_mc['log_SFR_SF'][inds_low_mass_agn])
+log_lambda_lims = log_lambda_lims[inds_lt_minus3]
 
-# plt.scatter(df_mc['log_SFR_SF'], df_mc['Lr'], alpha = 0.1)
-# plt.scatter(df_mc['log_SFR_SF'][inds_low_mass_agn], df_mc['Lr'][inds_low_mass_agn])
-# plt.show()
+print(np.log10(1/len(log_lambda_lims)))

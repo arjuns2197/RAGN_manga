@@ -28,6 +28,8 @@ log_lambda_max = 1
 df_manga = pd.read_pickle('../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl')
 inputs = np.load('../AGN_FIRST_files/results/MLE/ssfr_model/mle_ssfr_final.npz')
 
+df_manga = df_manga.drop(136, axis = 0)
+
 alpha_0 = inputs['alpha_0']
 beta = inputs['beta']
 lambda_star = inputs['lambda_star']
@@ -46,7 +48,7 @@ plateifu = df_manga['plateifu']
 
 random_ER = []
 
-w = 1
+w = 10
 
 start = time.time()
 for i in range(len(sfr)):
@@ -118,4 +120,4 @@ dict = {"log_SFR_SF": sfr_large, "nsa_redshift": z_large, "log_Mass" : stellar_m
 "L_lim": L_lim,  "er_lim": er_lim, "STELLAR_SIGMA_1RE": vd_large}
 
 df_mc_mass = pd.DataFrame(dict)
-df_mc_mass.to_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_final_w1.pkl")
+df_mc_mass.to_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_final_w10.pkl")

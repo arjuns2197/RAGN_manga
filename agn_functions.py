@@ -20,6 +20,8 @@ from astropy.table import Column
 from astropy.table import Table
 from random import random
 from scipy.stats import rv_continuous
+import emcee
+
 ln_10 = np.log(10)
 log_lambda_max = 1
 len_manga = 6731
@@ -663,12 +665,12 @@ def total_integral(log_lam_min,log_lam_max,alpha,lambda_star,correc_interp):
 
   I1 = power_law_int(log_lam_min,log_lam_max,alpha,lambda_star)
 
-
   I2 = lambda_star*(correc_interp(lam_max/lambda_star,alpha,
   grid = False)- correc_interp(lam_min/lambda_star,alpha,grid = False))
 
-
-  return I1 - I2
+  total_integral = I1 - I2
+  
+  return total_integral
 
 
 def gamma_integ(log_min, log_max,alpha, lambda_star):
@@ -2890,6 +2892,7 @@ def load_pipe_data():
 
   print("High sigma galaxies removed. Remaining length:",len(data_pipe3d_all))
 
+
   '''
   ind_badifu = []
 
@@ -3134,7 +3137,7 @@ def get_agn_frac(property,df_manga,df_mc): # Input exact column name as in Dataf
 
   Inputs column name of property, manga dataframe, model dataframe,'''
 
-  nbins = 4 #was 8
+  nbins = 8 #was 8
 
   sorted_byprop_df = df_mc.sort_values(by = [property])
 
@@ -3247,6 +3250,150 @@ def get_agn_frac(property,df_manga,df_mc): # Input exact column name as in Dataf
 
 ###################################################################################
 
+def get_agn_frac_mbins(property,df_manga,dfs_mc, nbins, galaxy_type): # Input exact column name as in Dataframe (str)
+ 
+  '''Returns list of arrrays containing data-AGN-fraction as a function of required property, 
+  values of galaxy the property, model-AGN-fraction as a function of required property
+  and the errorbars on the model.
+
+  Inputs column name of property, manga dataframe, model dataframe,'''
+
+  if property == "log_Mass":
+    bins = [10,10.5,11,11.5,12]
+
+  if property == "STELLAR_SIGMA_1RE":
+    bins = [1.75,2,2.25,2.5,2.75]
+
+  if property == "log_SFR_SF":
+    bins = [-5,-3.25,-1.5,0.25,2]
+  
+  if property == "sSFR":
+    bins = [-16, -14.375, -12.75, -11.125, -9.5]
+
+  inds_df_manga = np.where(df_manga['log_Mass'] > 10)[0]
+  df_manga = df_manga.iloc[inds_df_manga]  
+
+  if galaxy_type == 'sf':
+    inds_galaxy_type = np.where(df_manga['sSFR'] > -11.5)
+  
+  if galaxy_type == 'q':
+    inds_galaxy_type = np.where(df_manga['sSFR'] < -11.5)
+  
+
+  df_manga = df_manga.iloc[inds_galaxy_type]
+
+  prop_center = []
+  f_prop = []
+  N_agn = np.zeros(nbins)
+  N_all = np.zeros(nbins)
+
+  for i in range(len(dfs_mc)):
+    df_mc = dfs_mc[i]
+    sorted_byprop_df = df_mc.sort_values(by = [property])
+    binned_byprop_df = pd.cut(sorted_byprop_df[property], bins= bins)
+    sorted_byprop_df['bin_prop'] = binned_byprop_df
+    grped_byprop_df = sorted_byprop_df.groupby(["bin_prop"])
+    j = 0
+
+    for name, group in grped_byprop_df:
+    
+      string = str(name)
+      split = string.split(',')
+      left = float(split[0][1:])
+      right = float(split[1][:-1])
+      center = (left + right)/2
+
+      if len(prop_center) < nbins:
+        prop_center.append(center)
+
+      N_agn[j] = N_agn[j] + group['agn flux detectable'].sum()
+      N_all[j] = N_all[j] + len(group)
+      j = j+1
+
+  
+  f_prop = N_agn/N_all
+  prop_center = np.array(prop_center)
+
+  sorted_byprop_manga = df_manga.sort_values(by = [property])
+
+  binned_byprop_manga = pd.cut(sorted_byprop_manga[property], bins= bins)
+
+  sorted_byprop_manga['bin prop'] = binned_byprop_manga
+
+  grped_byprop_manga = sorted_byprop_manga.groupby(["bin prop"])
+
+  prop_center_manga = []
+  frac_prop_manga = []
+  size_prop_manga = []
+
+  for name, group in grped_byprop_manga:
+    
+    string = str(name)
+    split = string.split(',')
+    left = float(split[0][1:])
+    right = float(split[1][:-1])
+    center = (left + right)/2
+    prop_center_manga.append(center)
+    size_prop_manga.append(len(group))
+
+    average_manga = group["agn flux detectable"].mean()
+    frac_prop_manga.append(average_manga)
+
+
+  size_prop_manga = np.array(size_prop_manga)
+  frac_prop_manga = np.array(frac_prop_manga)
+  prop_center_manga = np.array(prop_center_manga)
+
+  print("N galssssssssssssssssssssssssssss:::",size_prop_manga*frac_prop_manga)
+
+  error_low = []
+  error_high = []
+
+
+  for i in range(nbins):
+
+    exp = f_prop[i]*size_prop_manga[i]
+
+    xlo = 0
+    xhi = size_prop_manga[i]
+    x = np.arange(xlo,xhi,1)
+
+    cdf = betainc(size_prop_manga[i]-x,x+1,1-f_prop[i])
+    indices_low = np.where(cdf > 0.16)
+
+    if len(cdf) == 0:
+      error_low.append(0.001)
+
+
+    elif cdf[0] > 0.16:
+      error_low.append(f_prop[i])
+    
+    else:
+      error_low.append((exp-indices_low[0][0])/size_prop_manga[i])
+
+    indices_high = np.where(cdf > 0.84)
+
+    if len(indices_high[0]) == 0:
+      error_high.append(0.001)
+
+    elif indices_high[0][0] < exp:
+      error_high.append(0)
+
+    else:
+      error_high.append((indices_high[0][0] - exp)/size_prop_manga[i])
+
+    
+
+  error_low = np.array(error_low)
+  error_high = np.array(error_high)
+  error_bar_prop = np.array([error_low,error_high])
+  
+  
+
+  return [frac_prop_manga, prop_center_manga, f_prop, prop_center,error_bar_prop]
+
+###################################################################################
+
 def prob_agnness(mass,alpha_0,beta,lambda_star,log_lambda_min,log_lambda_c,correc_obj):
     
   alpha = alpha_prop(alpha_0,mass,beta,"log_Mass")
@@ -3264,16 +3411,44 @@ def prob_agnness(mass,alpha_0,beta,lambda_star,log_lambda_min,log_lambda_c,corre
     
   return prob
 
+def prob_agnness_unif(alpha_0,lambda_star,log_lambda_min,log_lambda_c,correc_obj):
+    
+  alpha = alpha_0
 
-def get_absF_error(fracs,mean_frac):
+  if alpha <= 1:
+    prob = gamma_integ(log_lambda_c,log_lambda_max,alpha,
+    lambda_star)/gamma_integ(log_lambda_min,log_lambda_max,alpha,lambda_star)
 
-  frac_max = np.nanpercentile(fracs, 84)
-  frac_min = np.nanpercentile(fracs, 16)
+  if alpha > 1:
 
-  error_upper = np.abs(mean_frac - frac_max)
-  error_lower = np.abs(mean_frac - frac_min)
+    prob = total_integral(log_lambda_c,2.2,alpha,
+    lambda_star,correc_obj)/total_integral(log_lambda_min,2.2,alpha,lambda_star,correc_obj)
+  
+  if prob > 1:
+    prob = 1
 
-  return [error_lower,error_upper]
+  return prob
+
+
+
+def get_absF_error(log_fracs):
+
+  inds_valid = ~np.isnan(log_fracs)
+  log_fracs = log_fracs[inds_valid]
+
+  inds_valid = log_fracs > -np.inf
+
+  log_fracs = log_fracs[inds_valid]
+  log_median = np.percentile(log_fracs,50)
+
+  log_frac_lower = np.percentile(log_fracs, 16)
+  log_frac_upper = np.percentile(log_fracs, 84)
+
+  error_lower = np.abs(log_median - log_frac_lower)
+  error_upper = np.abs(log_frac_upper - log_median)
+
+  return [log_median,error_lower, error_upper]
+
 
 #########################################################################
 
@@ -3945,6 +4120,24 @@ def get_er_pcav(Lr, vd):
   return er
 
 
+def get_er_pcav_check_agn(Lr, vd, agnness):
+
+  if agnness == True:
+    pcav = p_cav(Lr)
+    log_mass_BH = np.float64(8.12+4.24*np.log10(10**vd/200))  # log(M_bh/Msun)
+    log_L_Edd= np.float64(np.log10(1.26e38)+log_mass_BH)
+    L_Edd= 10**log_L_Edd
+
+    er = 10**pcav/L_Edd
+  
+  else: 
+    er = 1e-99
+
+  return er
+
+vector_er_pcav_check_agn = np.vectorize(get_er_pcav_check_agn)
+
+
 def load_matched_df():
 
   df_pipe = load_pipe_df()
@@ -4046,6 +4239,7 @@ def get_AGN_lim_plain(sf,L_lim):
 
 v_get_AGN_lim_plain = np.vectorize(get_AGN_lim_plain)
 
+
 def get_ER_lim_agn_cav_plain(vd,z,sfr):
   
   """  Returns the limiting AGN Eddington Ratio of MaNGA galaxies without radio detection. 
@@ -4142,6 +4336,7 @@ def mle_prop_new_ers(model_type,df_manga,correction_integ_obj, use_volw):
   lambda_lim_non_agn = get_ER_lim_agn_cav(vd_dap_non_agn,z_non_agn,sfr_non_agn)
   lambda_agn = get_er_pcav(Lr_agn,vd_dap_agn)
 
+  print("The min isss::::",lambda_lim_non_agn.min())
 
   if model_type == None: ## To fit the uniform model. The galaxy property values are just unity.
 
@@ -4193,6 +4388,8 @@ def mle_prop_new_ers(model_type,df_manga,correction_integ_obj, use_volw):
 
     ln_likelihood = (volw_agn*np.log(likelihoods_agn)).sum()
 
+    #print(ln_likelihood)
+
     alphas_non_agn = alpha_prop(alpha_0,prop_non_agn,beta,model_type)
     norms_non_agn = np.ones(len(alphas_non_agn))
 
@@ -4210,28 +4407,29 @@ def mle_prop_new_ers(model_type,df_manga,correction_integ_obj, use_volw):
     likelihoods_alps_gt_1 = norms_non_agn[inds_alps_gt_1]*total_integral(log_lambda_min,
     np.log10(lambda_lim_non_agn[inds_alps_gt_1]),alphas_non_agn[inds_alps_gt_1],lambda_star,correction_integ_obj)
 
-    
     likelihoods_alps_lt_1 = norms_non_agn[inds_alps_lt_1]*gamma_integ(log_lambda_min,
     np.log10(lambda_lim_non_agn[inds_alps_lt_1])
     ,alphas_non_agn[inds_alps_lt_1],lambda_star)
 
+    #print(lambda_lim_non_agn.min())
+
     ln_likelihood = ln_likelihood + (volw_non_agn_alps_gt_1*np.log(
     likelihoods_alps_gt_1)).sum() + (volw_non_agn_alps_lt_1*np.log(likelihoods_alps_lt_1)).sum()
 
-    print(ln_likelihood)
+    #print(ln_likelihood)
 
     return -ln_likelihood
 
   from scipy.optimize import minimize
 
-  alpha0_start = 2
+  alpha0_start = 1.5
   beta_start = -3
-  lambda_star_start = 0.1
-  min_start = -6
+  lambda_star_start = 0.001
+  min_start = -5
 
   theta_start = [alpha0_start,beta_start,lambda_star_start,min_start]
   result = minimize(ln_p_sch,theta_start, method= 'Nelder-Mead',
-  bounds = [(None,None),(None,None),(None,None),(None,None)])
+  bounds = [(None,None),(None,None),(None,None),(-7,-3)])
 
 
   return [result.x[0], result.x[1], result.x[2], result.x[3]]
@@ -4341,3 +4539,521 @@ def plot_frac_sfq(property, df_manga):
   plt.tick_params(axis ='y',labelsize =30)
   plt.minorticks_off()
   #plt.ylabel(r"$\log_{\rm 10} ~\rm f_{\rm AGN}$", fontsize = 1.2*30)
+
+
+##############################################################################################################
+
+def group_by_mass(df,nbins,galaxy_type):
+
+  bins = [10,10.4,10.8,11.2,11.6,12]
+
+  sorted_byprop_df = df.sort_values(by = ['log_Mass'])
+  binned_byprop_df = pd.cut(sorted_byprop_df['log_Mass'], bins= bins)
+  sorted_byprop_df['Mass_bin'] = binned_byprop_df
+  grped_byprop_df = sorted_byprop_df.groupby(["Mass_bin"])
+
+  j = 1
+  for name, group in grped_byprop_df:
+    
+    print(name)
+    group.to_pickle("../AGN_FIRST_files/data/df_M_ssfr_bins/df_" + galaxy_type + str(j) + ".pkl")
+
+    if j < nbins:
+      j =  j+1
+    
+    else:
+      break
+
+
+
+def mle_msf_bins(df_msf_bin,correction_integ_obj):
+
+  '''Returns --> Model parameters alpha, beta, lamda_star and log_lambda_min after running MLE. 
+
+  Inputs --> 1) A string specifying the model type ("log_Mass" for the mass model) 
+  2) A pandas dataframe of properties of all galaxies. This can be generated using "load_matched_df()".
+  3) A file containing a grid of interpolations of integrals of the power law correction term that turns the power law into a Schecter function.
+  Use the function "correction_interp()" to generate the grid and then save it as a file that can be input here. np.save(, allow_pickle = True) works
+  well to save the file.
+  4) Set use_volw to True if you want to include the Wake weights while fitting. Set it to False otherwise. 
+  
+  '''
+  mass = df_msf_bin['log_Mass']
+  if type(mass) != np.ndarray:
+    mass = mass.to_numpy()
+
+  Lr = df_msf_bin['Lr']
+  if type(Lr) != np.ndarray:
+    Lr = Lr.to_numpy()
+
+  sfr = df_msf_bin['log_SFR_SF']
+  if type(sfr) != np.ndarray:
+    sfr = sfr.to_numpy()
+
+  vd = df_msf_bin['STELLAR_SIGMA_1RE']
+  if type(vd) != np.ndarray:
+    vd = vd.to_numpy()
+
+  z = df_msf_bin['nsa_redshift']
+  if type(z) != np.ndarray:
+    z = z.to_numpy()
+
+  ind_agn = df_msf_bin["agn flux detectable"].to_numpy(dtype= bool)
+
+  Lr_agn = Lr[ind_agn]
+  vd_dap_agn = vd[ind_agn]
+
+  sfr_non_agn = np.delete(sfr, ind_agn)
+  vd_non_agn = np.delete(vd, ind_agn)
+  z_non_agn = np.delete(z, ind_agn)
+
+  lambda_lim_non_agn = get_ER_lim_agn_cav(vd_non_agn,z_non_agn,sfr_non_agn)
+  lambda_agn = get_er_pcav(Lr_agn,vd_dap_agn)
+
+  def ln_p_msf_bins(theta_now): 
+
+    alpha_0 = theta_now[0]
+    lambda_star = 10**theta_now[1]
+    log_lambda_min = theta_now[2]
+
+    if (alpha_0 < -10) or (alpha_0 > 10):
+      return -np.inf
+
+    if (lambda_star <= 0) or (lambda_star > 1):
+      return -np.inf
+    
+    if log_lambda_min < -10:
+      return -np.inf
+  
+    if log_lambda_min > np.log10(lambda_lim_non_agn.min()):
+      return -np.inf
+
+    if len(lambda_agn) > 0:
+      if log_lambda_min > np.log10(lambda_agn.min()):
+        return -np.inf
+
+    if alpha_0 > 1:
+      norm_agn = 1/(total_integral(log_lambda_min,log_lambda_max,alpha_0,
+      lambda_star,correction_integ_obj)) 
+      norms_agn = norm_agn*np.ones(len(lambda_agn))
+
+
+    if alpha_0 <= 1:
+      norm_agn = 1/(gamma_integ(log_lambda_min,log_lambda_max,alpha_0,
+      lambda_star)) 
+      norms_agn = norm_agn*np.ones(len(lambda_agn))
+
+
+    likelihoods_agn = norms_agn*schechter_prop_mcmc_mbins(lambda_agn,
+    alpha_0,lambda_star)
+
+    ln_likelihood = np.log(likelihoods_agn).sum()
+    
+    alphas_non_agn = alpha_0*np.ones(len(lambda_lim_non_agn))
+    norms_non_agn = np.ones(len(alphas_non_agn))
+
+    if alpha_0 > 1:
+
+      norms_non_agn = 1/(total_integral(log_lambda_min,log_lambda_max,alphas_non_agn,
+      lambda_star,correction_integ_obj))
+
+
+      likelihoods = np.minimum(norms_non_agn*total_integral(log_lambda_min,
+      np.log10(lambda_lim_non_agn),alphas_non_agn,lambda_star,correction_integ_obj), 1)
+
+
+    if alpha_0 <= 1:
+      norm_non_agn = 1/(gamma_integ(log_lambda_min,log_lambda_max,alphas_non_agn,
+      lambda_star))
+
+      norms_non_agn = norm_non_agn*np.ones(len(lambda_lim_non_agn))
+      likelihoods = norms_non_agn*gamma_integ(log_lambda_min,
+      np.log10(lambda_lim_non_agn)
+      ,alphas_non_agn,lambda_star)
+      
+
+    ln_likelihood = ln_likelihood + np.log(likelihoods).sum()
+
+    if np.isnan(ln_likelihood):
+      return -np.inf
+    
+
+    print(ln_likelihood)
+
+    if ln_likelihood == 0:
+      print(theta_now)
+
+    return -ln_likelihood
+
+  from scipy.optimize import minimize
+
+  alpha0_start = 1.5
+  lambda_star_start = -2
+  min_start = -6.5
+
+  log_lambda_lim_non_agn_min = np.log10(lambda_lim_non_agn.min())
+
+  theta_start = [alpha0_start,lambda_star_start,min_start]
+  result = minimize(ln_p_msf_bins,theta_start, method= 'Nelder-Mead',
+  bounds = [(-10,10),(-9,1),(-10,log_lambda_lim_non_agn_min)])
+
+
+  return [result.x[0], result.x[1], result.x[2]]
+
+
+def mle_bins(galaxy_type, nbins, correc_integ_obj):
+
+  for i in range(nbins):
+    bin_num = i + 1
+    path = "../AGN_FIRST_files/data/df_M_ssfr_bins/df_" + galaxy_type + str(bin_num) + ".pkl"
+    df = pd.read_pickle(path)
+
+    M = 0.5*(df['log_Mass'].max() + df['log_Mass'].min())
+
+    model_para = mle_msf_bins(df,correc_integ_obj)
+    alpha_0, lambda_star, log_lambda_min = model_para
+
+    np.savez_compressed('../AGN_FIRST_files/results/MLE/mass_ssfr_bins/mle_' + galaxy_type + str(bin_num) + '.npz', M = M,
+    alpha_0 = alpha_0,lambda_star = lambda_star,log_lambda_min = log_lambda_min)
+
+
+
+def get_abs_agn_frac_mbins(model_parms, log_lambda_c):
+
+  M = model_parms[0]
+  alpha_0 = model_parms[1]
+  lambda_star = model_parms[2]
+  log_lambda_min = model_parms[3]
+
+  F = prob_agnness_unif(alpha_0, lambda_star, log_lambda_min, log_lambda_c, correc_obj)
+  log_F = np.log10(F)
+  
+  return [M, log_F]
+
+
+def get_absFrac_withebars_mbins(model_parms, mcmc_samples, log_lambda_c):
+
+  [M, log_F] = get_abs_agn_frac_mbins(model_parms,log_lambda_c)
+
+  alpha0s = mcmc_samples[:,0]
+  lamstars = 10**mcmc_samples[:,1]
+  logmins = mcmc_samples[:,2]
+
+  log_all_fracs_in_bin = []
+
+  for i in range(len(logmins)):
+
+    log_all_fracs_in_bin.append(get_abs_agn_frac_mbins(
+    [M,alpha0s[i],lamstars[i],logmins[i]],log_lambda_c)[1])
+  
+  log_all_fracs_in_bin = np.array(log_all_fracs_in_bin)
+
+  lbs = []
+  ubs = []
+
+  log_median_F,error_low, error_high = get_absF_error(log_all_fracs_in_bin)
+
+  lbs.append(error_low)
+  ubs.append(error_high)
+
+  lbs = np.array(lbs)
+  ubs = np.array(ubs)
+
+  ebars = np.array([lbs,ubs])
+
+  return [M,log_median_F,ebars]
+
+
+
+def schechter_prop_mcmc_mbins(lamda,alpha_0, lambda_star):
+
+  """This is derived from the true model. This function is used while integrating the
+  model, as it allows us to vary lambda in log units. This is used only in the Monte Carlo stage of
+  the analysis"""
+
+  
+  p_Xi= np.log(10)*lambda_star*(lamda/lambda_star)**(-alpha_0+1)*np.exp(-lamda/lambda_star)
+   
+  return p_Xi
+
+
+def ln_p_sch_mcmc(df_msf_bin,theta_now,correction_integ_obj): 
+
+  alpha_0 = theta_now[0]
+  lambda_star = 10**theta_now[1]
+  log_lambda_min = theta_now[2]
+
+
+  if (alpha_0 < -10) or (alpha_0 > 10):
+    return -np.inf
+
+  if (lambda_star <= 0) or (lambda_star > 1):
+    return -np.inf
+  
+  if log_lambda_min < -10:
+    return -np.inf
+  
+  if alpha_0 == 1:
+    return -np.inf
+  
+  mass = df_msf_bin['log_Mass']
+  if type(mass) != np.ndarray:
+    mass = mass.to_numpy()
+
+  vol_weights = np.ones(len(df_msf_bin['ESWEIGHT']))
+  if type(vol_weights) != np.ndarray:
+    vol_weights = vol_weights.to_numpy()
+
+  Lr = df_msf_bin['Lr']
+  if type(Lr) != np.ndarray:
+    Lr = Lr.to_numpy()
+
+  sfr = df_msf_bin['log_SFR_SF']
+  if type(sfr) != np.ndarray:
+    sfr = sfr.to_numpy()
+  
+
+  vd = df_msf_bin['STELLAR_SIGMA_1RE']
+  if type(vd) != np.ndarray:
+    vd = vd.to_numpy()
+  
+  z = df_msf_bin['nsa_redshift']
+  if type(z) != np.ndarray:
+    z = z.to_numpy()
+
+  ind_agn = df_msf_bin["agn flux detectable"].to_numpy(dtype= bool)
+
+  Lr_agn = Lr[ind_agn]
+  vd_dap_agn = vd[ind_agn]
+  
+  sfr_non_agn = np.delete(sfr, ind_agn)
+  vd_non_agn = np.delete(vd, ind_agn)
+  z_non_agn = np.delete(z, ind_agn)
+
+  lambda_lim_non_agn = get_ER_lim_agn_cav(vd_non_agn,z_non_agn,sfr_non_agn)
+  lambda_agn = get_er_pcav(Lr_agn,vd_dap_agn)
+
+
+  if log_lambda_min > np.log10(lambda_lim_non_agn.min()):
+    return -np.inf
+  
+  if len(lambda_agn) > 0:
+    if log_lambda_min > np.log10(lambda_agn.min()):
+      return -np.inf
+
+    
+  alphas_agn = alpha_0*np.ones(len(lambda_agn))
+
+  if alpha_0 > 1:
+    norm_agn = 1/(total_integral(log_lambda_min,log_lambda_max,alphas_agn,
+    lambda_star,correction_integ_obj)) 
+    norms_agn = norm_agn*np.ones(len(alphas_agn))
+
+  if alpha_0 < 1:
+    norm_agn = 1/(gamma_integ(log_lambda_min,log_lambda_max,alphas_agn,
+    lambda_star)) 
+    norms_agn = norm_agn*np.ones(len(alphas_agn))
+
+  likelihoods_agn = norms_agn*schechter_prop_mcmc_mbins(lambda_agn,
+  alpha_0,lambda_star)
+
+  ln_likelihood = np.log(likelihoods_agn).sum()
+
+  alphas_non_agn = alpha_0*np.ones(len(lambda_lim_non_agn))
+  norms_non_agn = np.ones(len(alphas_non_agn))
+
+  if alpha_0 > 1:
+    norm_non_agn = 1/(total_integral(log_lambda_min,log_lambda_max,alphas_non_agn,
+    lambda_star,correction_integ_obj))
+
+    norms_non_agn = norm_non_agn*np.ones(len(lambda_lim_non_agn))
+
+    likelihoods = np.minimum(norms_non_agn*total_integral(log_lambda_min,
+    np.log10(lambda_lim_non_agn),alphas_non_agn,lambda_star,correction_integ_obj), 1)
+
+
+  if alpha_0 < 1:
+    norm_non_agn = 1/(gamma_integ(log_lambda_min,log_lambda_max,alphas_non_agn,
+    lambda_star))
+
+    norms_non_agn = norm_non_agn*np.ones(len(lambda_lim_non_agn))
+    likelihoods = norms_non_agn*gamma_integ(log_lambda_min,
+    np.log10(lambda_lim_non_agn)
+    ,alphas_non_agn,lambda_star)
+
+  ln_likelihood = ln_likelihood + np.log(likelihoods).sum()
+
+  print(ln_likelihood)
+
+  return ln_likelihood
+
+
+def log_prior(theta_now):
+
+  alpha_0, log_lambda_star, log_lambda_min = theta_now
+
+  if -10 < alpha_0 < 10 and -10 < log_lambda_star < 1 and -10 < log_lambda_min < 5:
+    return 0.0
+
+  return -np.inf
+
+
+def run_mcmc(df_msf_bin,optimal_params,correction_integ_obj,chain_length):
+
+  def log_probability(theta_now):
+
+    lp = log_prior(theta_now)
+
+    if not np.isfinite(lp):
+      return -np.inf
+
+    if np.isnan(lp):
+      return -np.inf
+
+    if np.isnan(ln_p_sch_mcmc(df_msf_bin,theta_now,correction_integ_obj)):
+      return -np.inf
+    
+    return lp + ln_p_sch_mcmc(df_msf_bin,theta_now,correction_integ_obj)
+
+
+  pos =  optimal_params + 1e-4 * np.random.randn(32, 3)
+  nwalkers, ndim = pos.shape
+
+  sampler = emcee.EnsembleSampler(
+    nwalkers, ndim, log_probability)
+  sampler.run_mcmc(pos,chain_length, progress=True)
+
+  flat_samples = sampler.get_chain(discard=100, thin=15, flat=True)
+
+  print(flat_samples.shape)
+
+  if chain_length > 5000:
+    tau = sampler.get_autocorr_time()
+    print(tau)
+
+  return flat_samples
+
+
+
+def Fagn_mstar_model(log_M, a3, a2, a1, a0):
+  
+  F = a3*(log_M -10.5)**3 + a2*(log_M - 10.5)**2 + a1*(log_M - 10.5) + a0
+  
+  return F
+
+
+def plot_manga_constraint():
+
+  a3_mean = 0.09
+  a2_mean = -0.81
+  a1_mean = 2.43 
+  a0_mean = -2.75
+
+  mu = np.array([a3_mean, a2_mean, a1_mean, a0_mean])
+
+  cov_mat = np.array([[0.0002, -0.0014, 0.0029, -0.0015],
+                      [-0.0014, 0.0106, -0.0223, 0.012],
+                      [0.003, -0.0223, 0.0486, -0.0276],
+                      [-0.0015, 0.012, -0.0276, 0.0175]])
+  
+
+  m = 100
+  n = 10000
+  coeffs_array = np.random.multivariate_normal(mu, cov= cov_mat, size = n)
+
+  log_Ms = np.linspace(10,12,m)
+  log_Fs_all = []
+
+  for i in coeffs_array:
+      
+      a3,a2,a1,a0 = i
+
+      Fs = Fagn_mstar_model(log_Ms,a3,a2,a1,a0)
+      log_Fs_all.append(Fs)
+  
+  log_Fs_all = np.array(log_Fs_all)
+  log_Fs_ul = np.percentile(log_Fs_all, 84, axis = 0)
+  log_Fs_ll = np.percentile(log_Fs_all, 16, axis = 0)
+  log_Fs = np.percentile(log_Fs_all, 50, axis = 0)
+
+
+  plt.plot(log_Ms, log_Fs, label = r'$M_\star Model$', linewidth = 2.5, c = 'k')
+  plt.fill_between(log_Ms, log_Fs_ll, log_Fs_ul, color = 'tab:gray', alpha = 0.5)
+
+
+
+def get_Fagn_mbins():
+  log_lambda_c = -3
+  nbins = 5
+  path_inputs_sf = "../AGN_FIRST_files/results/MLE/mass_ssfr_bins/mle_sf"
+  path_inputs_q = '../AGN_FIRST_files/results/MLE/mass_ssfr_bins/mle_q'
+
+  inputs_sf = []
+  inputs_q = []
+
+  path_mcmcs_sf = "../AGN_FIRST_files/results/MCMC/mass_bins/mcmcsf"
+  path_mcmcs_q = "../AGN_FIRST_files/results/MCMC/mass_bins/mcmcq"
+
+  mcmcs_sf = []
+  mcmcs_q = []
+
+  for i in range(nbins):
+    
+    inputs_sf.append(np.load(path_inputs_sf + str(i+1) + ".npz"))
+    inputs_q.append(np.load(path_inputs_q + str(i+1) + ".npz"))  
+
+    mcmcs_sf.append(np.load(path_mcmcs_sf + str(i+1) +".npz")['flat_samples'])
+    mcmcs_q.append(np.load(path_mcmcs_q + str(i+1) +".npz")['flat_samples'])
+
+  Ms_sf = []
+  log_Fracs_sf = []
+  log_ebars_sf_lower = []
+  log_ebars_sf_upper = []
+
+  Ms_q = []
+  log_Fracs_q = []
+  log_ebars_q_lower = []
+  log_ebars_q_upper = []
+
+  for i in range(nbins):
+
+    Msf = inputs_sf[i]['M']
+    alpha_0_sf = inputs_sf[i]['alpha_0']+ 1e-8
+    lambda_star_sf = 10**inputs_sf[i]['lambda_star']
+    log_lambda_min_sf = inputs_sf[i]['log_lambda_min']
+
+    mcmc_samples = mcmcs_sf[i]
+
+    model_parms = [Msf, alpha_0_sf, lambda_star_sf, log_lambda_min_sf]
+    [Msf, log_Fsf, log_ebarssf] = get_absFrac_withebars_mbins(model_parms, mcmc_samples, log_lambda_c)
+
+    Ms_sf.append(Msf)
+    log_Fracs_sf.append(log_Fsf)
+    log_ebars_sf_lower.append(log_ebarssf[0][0])
+    log_ebars_sf_upper.append(log_ebarssf[1][0])
+
+    Mq = inputs_q[i]['M']
+    alpha_0_q = inputs_q[i]['alpha_0']
+    lambda_star_q = 10**inputs_q[i]['lambda_star']
+    log_lambda_min_q = inputs_q[i]['log_lambda_min']
+
+    mcmc_samples = mcmcs_q[i]
+
+    model_parms = [Mq, alpha_0_q, lambda_star_q, log_lambda_min_q]
+    [Mq, log_Fq, log_ebarsq] = get_absFrac_withebars_mbins(model_parms, mcmc_samples, log_lambda_c)
+
+    Ms_q.append(Mq)
+    log_Fracs_q.append(log_Fq)
+    log_ebars_q_lower.append(log_ebarsq[0][0])
+    log_ebars_q_upper.append(log_ebarsq[1][0])
+
+
+  log_ebars_sf_lower = np.array(log_ebars_sf_lower)
+  log_ebars_sf_upper = np.array(log_ebars_sf_upper)
+  log_ebars_sf = np.array([log_ebars_sf_lower, log_ebars_sf_upper])
+
+  log_ebars_q_lower = np.array(log_ebars_q_lower)
+  log_ebars_q_upper = np.array(log_ebars_q_upper)
+  log_ebars_q = np.array([log_ebars_q_lower, log_ebars_q_upper])
+
+  return [log_Fracs_sf, log_Fracs_q,log_ebars_sf, log_ebars_q]

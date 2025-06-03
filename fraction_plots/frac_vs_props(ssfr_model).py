@@ -21,13 +21,17 @@ from astropy.table import Column
 from astropy.table import Table
 log_lambda_max = 1.7
 
-df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_final_w1000.pkl")
+df_mc = pd.read_pickle("../AGN_FIRST_files/results/MC/ssfr_model/df_mc_ssfr_final_w10.pkl")
 df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ers.pkl")
+
+print(df_manga['STELLAR_SIGMA_1RE'][136])
+
+df_manga = df_manga.drop(136, axis = 0)
 
 
 def plot_frac(property):
 
-    [frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac_Ha(
+    [frac_prop_manga, prop_manga, frac_prop_mc, prop_mc, errorbar_prop] = agn.get_agn_frac(
         property,df_manga,df_mc)
     
     plt.scatter(prop_manga, frac_prop_manga, label = "Observation", c = 'k', s = 1.5*180)

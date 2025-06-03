@@ -20,22 +20,39 @@ from scipy import interpolate
 import cProfile
 from astropy.table import Column
 
-#correc_obj = agn.correction_interp()
-#np.save("../AGN_FIRST_files/data/interp_obj.npy", correc_obj ,allow_pickle= True)
-
 correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
 
-#df_manga = agn.load_matched_df_new_ERs()
-#df_manga.to_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
 df_manga = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
 
-print(plt.hist(df_manga['log_Mass']))
-plt.show()
+inds_mass_cut = np.where(df_manga['log_Mass'] > 10)
+df_manga = df_manga.iloc[inds_mass_cut]
 
-# mass_model_para = agn.mle_prop_new_ers(None,df_manga,correc_obj,False)
-# alpha_0, beta, lambda_star, log_lambda_min = mass_model_para
+nbins = 5
 
-print(alpha_0,beta, lambda_star,log_lambda_min)
+# inds_sf = np.where(df_manga['sSFR'] > -11.5)[0]
+# inds_q = np.where(df_manga['sSFR'] < -11.5)[0]
 
-### Save Results
-np.savez_compressed('../AGN_FIRST_files/results/MLE/unif_model/mle_unif_final.npz',alpha_0 = alpha_0, beta = beta, lambda_star = lambda_star,log_lambda_min = log_lambda_min)
+# df_qs = df_manga.iloc[inds_q]
+# agn.group_by_mass(df_qs,nbins,'q')
+# agn.mle_bins('q', nbins, correc_obj)
+
+# df_sfs = df_manga.iloc[inds_sf]
+# agn.group_by_mass(df_sfs,nbins,'sf')
+# agn.mle_bins('sf', nbins, correc_obj)
+
+path_ = '../AGN_FIRST_files/results/MLE/mass_ssfr_bins/mle_q'
+
+for i in range(nbins):
+
+    bin_num = i + 1 
+    path = path_ + str(bin_num) + ".npz"
+
+    model_parms = np.load(path)
+    M = model_parms['M']
+    alpha_0 = model_parms['alpha_0'] + 1e-7
+    lambda_star = model_parms['lambda_star']
+    log_lambda_min = model_parms['log_lambda_min']
+
+    optimal_Fagn = agn.prob_agnness_unif(alpha_0,10**lambda_star,log_lambda_min,-3,correc_obj)
+
+    print(alpha_0, lambda_star, log_lambda_min, np.log10(optimal_Fagn))

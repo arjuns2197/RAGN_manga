@@ -151,7 +151,6 @@ def plot_frac(property):
 
 f = 30
 
-
 plot_frac('log_Mass')
 plt.title(r"$M_\star \rm Model$", fontsize =30)
 plt.xlabel(r"$\log_{\rm 10}\left(\rm M_\star/ \rm ~M_\odot \right)$", fontsize = f)
