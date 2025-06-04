@@ -4460,7 +4460,7 @@ def get_agn_frac_sfq(property,df_manga): # Input exact column name as in Datafra
 
   Inputs column name of property, manga dataframe, model dataframe,'''
 
-  nbins = 8 #was 8
+  nbins = [10.4,10.8,11.2,11.6,12]
 
   sorted_byprop_manga = df_manga.sort_values(by = [property])
 
@@ -4475,7 +4475,12 @@ def get_agn_frac_sfq(property,df_manga): # Input exact column name as in Datafra
   size_prop_manga = []
 
   frac_sf = []
+  error_low_sf = []
+  error_high_sf = []
+
   frac_q = []
+  error_low_q = []
+  error_high_q = []
 
   for name, group in grped_byprop_manga:
     
@@ -4503,42 +4508,43 @@ def get_agn_frac_sfq(property,df_manga): # Input exact column name as in Datafra
 
     print(len(group["agn flux detectable"][condition_q]))
 
+    ngal_sf = len(group["log_Mass"][condition_sf])
+    sf_lower = np.sqrt(average_sf_manga*(1 - average_sf_manga)/ngal_sf)
+    sf_upper =  np.sqrt(average_sf_manga*(1 - average_sf_manga)/ngal_sf)
+
+    error_low_sf.append(sf_lower)
+    error_high_sf.append((sf_upper))
+
+    ngal_q = len(group["log_Mass"][condition_q])
+    q_lower = np.sqrt(average_q_manga*(1 - average_q_manga)/ngal_q)
+    q_upper =  np.sqrt(average_q_manga*(1 - average_q_manga)/ngal_q)
+
+    error_low_q.append(q_lower)
+    error_high_q.append((q_upper))
 
 
+  
   size_prop_manga = np.array(size_prop_manga)
   frac_prop_manga = np.array(frac_prop_manga)
   prop_center_manga = np.array(prop_center_manga)
   frac_q = np.array(frac_q)
   frac_sf = np.array(frac_sf)
+
+  error_low_q = np.array(error_low_q)
+  error_high_q = np.array(error_high_q)
+
+  ebars_q = np.array([error_low_q, error_high_q])
+
+  error_low_sf = np.array(error_low_sf)
+  error_high_sf = np.array(error_high_sf)
+
+  ebars_sf = np.array([error_low_sf, error_high_sf])
   
 
-  return [frac_prop_manga, prop_center_manga, frac_q , frac_sf]
+  return [frac_prop_manga, prop_center_manga, frac_q , frac_sf, ebars_q, ebars_sf]
 
 
 
-def plot_frac_sfq(property, df_manga):
-
-  [frac_prop_manga, prop_center_manga, frac_q , frac_sf] = get_agn_frac_sfq(
-  property,df_manga)
-  
-  prop_center_manga_finite_sf = prop_center_manga[frac_sf > 10**-4]
-  frac_sf_finite = frac_sf[frac_sf > 10**-5]
-  
-  prop_center_manga_finite_q = prop_center_manga[frac_q > 10**-4]
-  frac_q_finite = frac_q[frac_q > 10**-5]
-
-  #plt.scatter(prop_center_manga, frac_prop_manga, label = "Observation", c = 'k', s = 1.5*180)
-  plt.scatter(prop_center_manga_finite_sf, frac_sf_finite, label = "Detected AGN fraction (Star Forming)", c = 'royalblue', s = 1.5*180, alpha = 0.6)
-  plt.scatter(prop_center_manga_finite_q, frac_q_finite, label = "Detected AGN fraction (Quenched)", c = 'tab:red', s = 1.5*180, alpha= 0.6)
-  plt.plot(prop_center_manga_finite_q, frac_q_finite, c = 'tab:red', linewidth = 2)
-  plt.plot(prop_center_manga_finite_sf, frac_sf_finite, c = 'royalblue', linewidth = 2)
-  plt.legend(prop = {'size' : 1.5*15})
-  plt.yscale('log')
-  plt.ylim(7e-6,1.5)
-  plt.yticks([1e-5,1e-4,1e-3,1e-2,1e-1,1], labels = [-5,-4,-3,-2,-1,0])
-  plt.tick_params(axis ='y',labelsize =30)
-  plt.minorticks_off()
-  #plt.ylabel(r"$\log_{\rm 10} ~\rm f_{\rm AGN}$", fontsize = 1.2*30)
 
 
 ##############################################################################################################
@@ -5057,3 +5063,70 @@ def get_Fagn_mbins():
   log_ebars_q = np.array([log_ebars_q_lower, log_ebars_q_upper])
 
   return [log_Fracs_sf, log_Fracs_q,log_ebars_sf, log_ebars_q]
+
+
+
+
+def plot_Fagn_mbins_constraint():
+
+  Ms = np.array([10.2, 10.6, 11, 11.4, 11.8])
+  log_Fracs_q = np.array([-1.66, -1.17, -0.84])
+  log_Fracs_sf = np.array([-1.62, -1.58, -1.10, -0.65])
+  log_ebars_q = np.array([[0.1, 0.05, 0.05], 
+                          [0.09, 0.05, 0.05]])
+  log_ebars_sf = np.array([[0.4, 0.22, 0.13, 0.22], 
+                            [0.37, 0.19, 0.12, 0.17]])
+  
+  log_Fagn_uls = np.array([-0.78, -1.88, -0.30])
+
+  # Define colors using hex codes
+  red_hex = '#d62728'
+  blue_hex = '#1f77b4'
+
+  # Convert to linear
+  Fracs_q = 10**log_Fracs_q
+  Fracs_sf = 10**log_Fracs_sf
+
+  # Compute asymmetric errors in linear space
+  q_err_low = Fracs_q - 10**(log_Fracs_q - log_ebars_q[0])
+  q_err_high = 10**(log_Fracs_q + log_ebars_q[1]) - Fracs_q
+  sf_err_low = Fracs_sf - 10**(log_Fracs_sf - log_ebars_sf[0])
+  sf_err_high = 10**(log_Fracs_sf + log_ebars_sf[1]) - Fracs_sf
+
+  # Fill between for SF and Q — central line removed
+  plt.fill_between(Ms[1:], Fracs_sf - sf_err_low, Fracs_sf + sf_err_high,
+                    color=blue_hex, alpha=0.25, label='Observed Star-Forming')
+  plt.fill_between(Ms[2:], Fracs_q - q_err_low, Fracs_q + q_err_high,
+                    color=red_hex, alpha=0.25, label='Observed Quiescent')
+
+  # Example: single upper limit arrow (Q2 bin)
+  # plt.hlines(10**log_Fagn_uls[1], Ms[1] - 0.05, Ms[1] + 0.05, colors=red_hex, linewidth=1)
+  # plt.annotate('', xy=(Ms[1], 10**(log_Fagn_uls[1] - 0.3)), xytext=(Ms[1], 10**log_Fagn_uls[1]),
+  #             arrowprops=dict(arrowstyle='-|>', color=red_hex, linewidth=1))
+
+  # Upper limit region for Q2 bin using fill_between
+  plt.fill_between([Ms[1], Ms[2]],
+                  [0, 0],
+                  [10**log_Fagn_uls[1], 10**log_Fagn_uls[1]],
+                  color=red_hex, alpha=0.25)
+
+  
+
+
+def plot_frac_sfq(property, df_manga):
+
+  red_hex = '#d62728'
+  blue_hex = '#1f77b4'
+
+  [frac_prop_manga, prop_center_manga, frac_q , frac_sf, ebars_q, ebars_sf] = get_agn_frac_sfq(
+  property,df_manga)
+  
+
+
+  #plt.scatter(prop_center_manga, frac_prop_manga, label = "Observation", c = 'k', s = 1.5*180)
+  plt.scatter(prop_center_manga, frac_sf, label = "Detected Star Forming", c = blue_hex, s = 1.5*180, alpha = 0.6)
+  plt.scatter(prop_center_manga, frac_q, label = "Detected Quenched", c = red_hex, s = 1.5*180, alpha= 0.6)
+  plt.plot(prop_center_manga[1:], frac_q[1:], c = red_hex, linewidth = 2)
+  plt.plot(prop_center_manga, frac_sf, c = blue_hex, linewidth = 2)
+  plt.errorbar(prop_center_manga[1:], frac_q[1:], yerr = ebars_q[:, 1:], capsize =15, color = red_hex)
+  plt.errorbar(prop_center_manga, frac_sf, yerr = ebars_sf, capsize =15, color = blue_hex)
