@@ -4452,7 +4452,7 @@ def get_Lr_pcav(pcav):
   return log_Lr
 
 
-def get_agn_frac_sfq(property,df_manga): # Input exact column name as in Dataframe (str)
+def get_agn_frac_sfq_loglam_gt_minus3(property,df_manga): # Input exact column name as in Dataframe (str)
  
   '''Returns list of arrrays containing data-AGN-fraction as a function of required property, 
   values of galaxy the property, model-AGN-fraction as a function of required property
@@ -4484,7 +4484,6 @@ def get_agn_frac_sfq(property,df_manga): # Input exact column name as in Datafra
 
   for name, group in grped_byprop_manga:
     
-
     string = str(name)
     split = string.split(',')
     left = float(split[0][1:])
@@ -4493,20 +4492,65 @@ def get_agn_frac_sfq(property,df_manga): # Input exact column name as in Datafra
     prop_center_manga.append(center)
     size_prop_manga.append(len(group))
 
-    average_manga = group["agn flux detectable"].mean()
+    mass = group['log_Mass']
+    if type(mass) != np.ndarray:
+        mass = mass.to_numpy()
+
+    Lr = group['Lr']
+    if type(Lr) != np.ndarray:
+        Lr = Lr.to_numpy()
+
+    sfr = group['log_SFR_SF']
+    if type(sfr) != np.ndarray:
+        sfr = sfr.to_numpy()
+
+    vd = group['STELLAR_SIGMA_1RE']
+    if type(vd) != np.ndarray:
+        vd = vd.to_numpy()
+
+    z = group['nsa_redshift']
+    if type(z) != np.ndarray:
+        z = z.to_numpy()
+
+    ind_agn = group["agn flux detectable"].to_numpy(dtype=bool)
+
+    Lr_agn = Lr[ind_agn]
+    vd_dap_agn = vd[ind_agn]
+
+    sfr_non_agn = np.delete(sfr, ind_agn)
+    vd_non_agn = np.delete(vd, ind_agn)
+    z_non_agn = np.delete(z, ind_agn)
+
+    lambda_lim_non_agn = get_ER_lim_agn_cav(vd_non_agn, z_non_agn, sfr_non_agn)
+    lambda_agn = get_er_pcav(Lr_agn, vd_dap_agn)
+
+    # Filter AGN galaxies with lambda > 1e-3
+    lambda_cut = lambda_agn > 1e-3
+
+    # Convert the AGN boolean mask into actual indices for group-wide operations
+    full_indices = np.where(ind_agn)[0]
+    filtered_indices = full_indices[lambda_cut]
+
+    # Build a boolean mask for group-level filtering
+    agn_lambda_mask = np.zeros(len(group), dtype=bool)
+    agn_lambda_mask[filtered_indices] = True
+
+    # Overall average with lambda > 1e-3
+    average_manga = len(group["agn flux detectable"][agn_lambda_mask])/ len(group)
     frac_prop_manga.append(average_manga)
 
-    condition_sf = group['sSFR'] > -11.25
-    average_sf_manga = group["agn flux detectable"][condition_sf].mean()
+    condition_sf = group['sSFR'] > -11.5
+    condition_q = group['sSFR'] < -11.5
+
+    # Star-forming condition
+    condition_sf_agn = (group['sSFR'] > -11.5) & agn_lambda_mask
+    average_sf_manga = len(group["agn flux detectable"][condition_sf_agn])/len(group[condition_sf])
     frac_sf.append(average_sf_manga)
 
-    print(len(group["agn flux detectable"][condition_sf]))
-
-    condition_q = group['sSFR'] < -11.25
-    average_q_manga = group["agn flux detectable"][condition_q].mean()
+    # Quenched condition
+    condition_q_agn = (group['sSFR'] < -11.5) & agn_lambda_mask
+    average_q_manga = len(group["agn flux detectable"][condition_q_agn])/len(group[condition_q])
     frac_q.append(average_q_manga)
-
-    print(len(group["agn flux detectable"][condition_q]))
 
     ngal_sf = len(group["log_Mass"][condition_sf])
     sf_lower = np.sqrt(average_sf_manga*(1 - average_sf_manga)/ngal_sf)
@@ -4521,7 +4565,6 @@ def get_agn_frac_sfq(property,df_manga): # Input exact column name as in Datafra
 
     error_low_q.append(q_lower)
     error_high_q.append((q_upper))
-
 
   
   size_prop_manga = np.array(size_prop_manga)
@@ -5068,47 +5111,61 @@ def get_Fagn_mbins():
 
 
 def plot_Fagn_mbins_constraint():
+    # Bin edges and midpoints
+    bin_edges = np.array([10.0, 10.4, 10.8, 11.2, 11.6, 12.0])
+    Ms = 0.5 * (bin_edges[:-1] + bin_edges[1:])
 
-  Ms = np.array([10.2, 10.6, 11, 11.4, 11.8])
-  log_Fracs_q = np.array([-1.66, -1.17, -0.84])
-  log_Fracs_sf = np.array([-1.62, -1.58, -1.10, -0.65])
-  log_ebars_q = np.array([[0.1, 0.05, 0.05], 
-                          [0.09, 0.05, 0.05]])
-  log_ebars_sf = np.array([[0.4, 0.22, 0.13, 0.22], 
-                            [0.37, 0.19, 0.12, 0.17]])
+    # Log F_AGN values (from board)
+    log_Fracs_q = np.array([-0.41, -1.41, -1.66, -1.17, -0.84])
+    log_Fracs_sf = np.array([-0.11, -1.62, -1.58, -1.10, -0.65])
+
+    # Errors only for last 3 Q bins and last 4 SF bins
+    log_ebars_q = np.array([[0.10, 0.05, 0.05],    # lower
+                            [0.09, 0.05, 0.05]])   # upper
+    log_ebars_sf = np.array([[0.4, 0.22, 0.13, 0.22],
+                             [0.37, 0.19, 0.12, 0.17]])
+
+    # Colors
+    red_hex = '#d62728'
+    blue_hex = '#1f77b4'
+
+    # Convert to linear
+    Fracs_q = 10**log_Fracs_q
+    Fracs_sf = 10**log_Fracs_sf
+
+    # Compute asymmetric errors in linear space
+    q_err_low = Fracs_q[2:] - 10**(log_Fracs_q[2:] - log_ebars_q[0])
+    q_err_high = 10**(log_Fracs_q[2:] + log_ebars_q[1]) - Fracs_q[2:]
+
+    sf_err_low = Fracs_sf[1:] - 10**(log_Fracs_sf[1:] - log_ebars_sf[0])
+    sf_err_high = 10**(log_Fracs_sf[1:] + log_ebars_sf[1]) - Fracs_sf[1:]
+
+    # === Plot Quiescent error bands (bins 3–5) ===
+    q_edges = bin_edges[2:]  # From 10.8 to 12
+    for i in range(3):  # 3 bins (i=0 to 2)
+        x = [q_edges[i], q_edges[i+1]]
+        y_low = Fracs_q[i+2] - q_err_low[i]
+        y_high = Fracs_q[i+2] + q_err_high[i]
+        plt.fill_between(x, [y_low]*2, [y_high]*2, color=red_hex, alpha=0.5, label='Intrinsic Quiescent' if i == 0 else "")
+        
+    # === Plot Star-Forming error bands (bins 2–5) ===
+    sf_edges = bin_edges[1:]  # From 10.4 to 12
+    for i in range(4):  # 4 bins (i=0 to 3)
+        x = [sf_edges[i], sf_edges[i+1]]
+        y_low = Fracs_sf[i+1] - sf_err_low[i]
+        y_high = Fracs_sf[i+1] + sf_err_high[i]
+        plt.fill_between(x, [y_low]*2, [y_high]*2, color=blue_hex, alpha=0.5, label='Intrinsic Star forming' if i == 0 else "")
+
+
+    # === Upper limits for first 2 Q bins ===
+    for i in [0, 1]:
+        plt.fill_between([bin_edges[i], bin_edges[i+1]], [0, 0], [10**log_Fracs_q[i]]*2,
+                         color=red_hex, alpha=0.5)
+
+    # === Upper limit for first SF bin ===
+    plt.fill_between([bin_edges[0], bin_edges[1]], [0, 0], [10**log_Fracs_sf[0]]*2,
+                     color=blue_hex, alpha=0.5)
   
-  log_Fagn_uls = np.array([-0.78, -1.88, -0.30])
-
-  # Define colors using hex codes
-  red_hex = '#d62728'
-  blue_hex = '#1f77b4'
-
-  # Convert to linear
-  Fracs_q = 10**log_Fracs_q
-  Fracs_sf = 10**log_Fracs_sf
-
-  # Compute asymmetric errors in linear space
-  q_err_low = Fracs_q - 10**(log_Fracs_q - log_ebars_q[0])
-  q_err_high = 10**(log_Fracs_q + log_ebars_q[1]) - Fracs_q
-  sf_err_low = Fracs_sf - 10**(log_Fracs_sf - log_ebars_sf[0])
-  sf_err_high = 10**(log_Fracs_sf + log_ebars_sf[1]) - Fracs_sf
-
-  # Fill between for SF and Q — central line removed
-  plt.fill_between(Ms[1:], Fracs_sf - sf_err_low, Fracs_sf + sf_err_high,
-                    color=blue_hex, alpha=0.25, label='Observed Star-Forming')
-  plt.fill_between(Ms[2:], Fracs_q - q_err_low, Fracs_q + q_err_high,
-                    color=red_hex, alpha=0.25, label='Observed Quiescent')
-
-  # Example: single upper limit arrow (Q2 bin)
-  # plt.hlines(10**log_Fagn_uls[1], Ms[1] - 0.05, Ms[1] + 0.05, colors=red_hex, linewidth=1)
-  # plt.annotate('', xy=(Ms[1], 10**(log_Fagn_uls[1] - 0.3)), xytext=(Ms[1], 10**log_Fagn_uls[1]),
-  #             arrowprops=dict(arrowstyle='-|>', color=red_hex, linewidth=1))
-
-  # Upper limit region for Q2 bin using fill_between
-  plt.fill_between([Ms[1], Ms[2]],
-                  [0, 0],
-                  [10**log_Fagn_uls[1], 10**log_Fagn_uls[1]],
-                  color=red_hex, alpha=0.25)
 
   
 
@@ -5118,15 +5175,29 @@ def plot_frac_sfq(property, df_manga):
   red_hex = '#d62728'
   blue_hex = '#1f77b4'
 
-  [frac_prop_manga, prop_center_manga, frac_q , frac_sf, ebars_q, ebars_sf] = get_agn_frac_sfq(
+  [frac_prop_manga, prop_center_manga, frac_q , frac_sf, ebars_q, ebars_sf] = get_agn_frac_sfq_loglam_gt_minus3(
   property,df_manga)
   
 
 
   #plt.scatter(prop_center_manga, frac_prop_manga, label = "Observation", c = 'k', s = 1.5*180)
-  plt.scatter(prop_center_manga, frac_sf, label = "Detected Star Forming", c = blue_hex, s = 1.5*180, alpha = 0.6)
-  plt.scatter(prop_center_manga, frac_q, label = "Detected Quenched", c = red_hex, s = 1.5*180, alpha= 0.6)
+  plt.scatter(prop_center_manga, frac_q, label = "Detected Quiescent", c = red_hex, s = 1.5*180, alpha= 0.6)
+  plt.scatter(prop_center_manga, frac_sf, label = "Detected Star forming", c = blue_hex, s = 1.5*180, alpha = 0.6)
   plt.plot(prop_center_manga[1:], frac_q[1:], c = red_hex, linewidth = 2)
   plt.plot(prop_center_manga, frac_sf, c = blue_hex, linewidth = 2)
   plt.errorbar(prop_center_manga[1:], frac_q[1:], yerr = ebars_q[:, 1:], capsize =15, color = red_hex)
   plt.errorbar(prop_center_manga, frac_sf, yerr = ebars_sf, capsize =15, color = blue_hex)
+
+
+
+def get_Fagn_upperlim(Ngal_lamlim_lt_minus3):
+
+  N = Ngal_lamlim_lt_minus3
+
+  Fagn_ul = 1 - (0.05)**(1/N) 
+  log_Fagn_ul = np.log10(Fagn_ul)
+
+  return log_Fagn_ul
+
+
+

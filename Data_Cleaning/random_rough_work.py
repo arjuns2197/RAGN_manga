@@ -34,6 +34,36 @@ from PIL import Image
 import matplotlib.patches as patches
 f = 45
 
-[log_Fracs_sf, log_Fracs_q,log_ebars_sf, log_ebars_q] = agn.get_Fagn_mbins()
+galaxy_type = 'sf'
+bin_num = 1
 
-print(log_ebars_q)
+group = pd.read_pickle("../AGN_FIRST_files/data/df_M_ssfr_bins/df_" + galaxy_type + str(bin_num) + ".pkl")
+
+mass = group['log_Mass']
+if type(mass) != np.ndarray:
+    mass = mass.to_numpy()
+
+Lr = group['Lr']
+if type(Lr) != np.ndarray:
+    Lr = Lr.to_numpy()
+
+sfr = group['log_SFR_SF']
+if type(sfr) != np.ndarray:
+    sfr = sfr.to_numpy()
+
+vd = group['STELLAR_SIGMA_1RE']
+if type(vd) != np.ndarray:
+    vd = vd.to_numpy()
+
+z = group['nsa_redshift']
+if type(z) != np.ndarray:
+    z = z.to_numpy()
+
+
+lambda_lim = agn.get_ER_lim_agn_cav(vd,z,sfr)
+condition = lambda_lim < 10**(-3)
+lambda_lim = lambda_lim[condition]
+
+Ngal = len(lambda_lim)
+
+print(agn.get_Fagn_upperlim(Ngal))

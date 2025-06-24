@@ -28,6 +28,8 @@ correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= Tru
 
 [log_Fracs_sf, log_Fracs_q,log_ebars_sf, log_ebars_q] = agn.get_Fagn_mbins()
 
+print(log_ebars_q)
+
 galaxy_types = ['q', 'sf']
 bin_nums = np.arange(1,3)
 

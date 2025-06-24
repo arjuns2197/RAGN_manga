@@ -18,29 +18,68 @@ import emcee
 import time
 #log_lambda_max = 2
 
-galaxy_type = 'q'
-bin_num = 2
+f = 30
 
+df = pd.read_pickle("../AGN_FIRST_files/data/df_matched_6255_new_ERs.pkl")
 
-correc_obj = np.load("../AGN_FIRST_files/data/interp_obj.npy", allow_pickle= True)[()]
-path = "../AGN_FIRST_files/data/df_M_ssfr_bins/df_" + galaxy_type + str(bin_num) + ".pkl"
-df = pd.read_pickle(path)
+Q_mask = (df['sSFR'] > -16) & (df['sSFR'] < -11.5)
+SF_mask = df['sSFR'] > -11.5
 
-vd = df['STELLAR_SIGMA_1RE'].to_numpy()
-Lr = df['Lr'].to_numpy()
-z = df['nsa_redshift'].to_numpy()
-sfr = df['log_SFR_SF'].to_numpy()
-is_agn = df['agn flux detectable'].to_numpy(dtype = bool)
+# Define mass bins
+mass_bins = [10, 10.4, 10.8, 11.2, 11.6, 12]
 
+# Prepare figure
+plt.figure(figsize=(10, 6))
 
-lambda_lims = agn.get_ER_lim_agn_cav(vd, z, sfr)
-lambdas = agn.vector_er_pcav_check_agn(Lr, vd, is_agn)
+# Scatter plot
+plt.scatter(df.loc[Q_mask, 'log_Mass'], df.loc[Q_mask, 'sSFR'], color='red', s=50, label='Quiescent', alpha = 0.25)
+plt.scatter(df.loc[SF_mask, 'log_Mass'], df.loc[SF_mask, 'sSFR'], color='blue', s=50, label='Star forming', alpha = 0.25)
 
-log_lambda_lims = np.log10(lambda_lims)
-log_lambdas = np.log10(lambdas)
+# AGN overlay
+agn_mask = df['agn flux detectable'] == True
+plt.scatter(df.loc[agn_mask, 'log_Mass'], df.loc[agn_mask, 'sSFR'], color='black', s=105, label='Detected AGN', zorder=3)
 
-inds_lt_minus3 = log_lambda_lims < -3
+# Draw boxes for bins
+for i in range(len(mass_bins) - 1):
+    x0 = mass_bins[i]
+    x1 = mass_bins[i + 1]
 
-log_lambda_lims = log_lambda_lims[inds_lt_minus3]
+    # Box for Q region
+    plt.gca().add_patch(plt.Rectangle(
+        (x0, -16), x1 - x0, 4.5,  # height from -16 to -11.5
+        fill=False, edgecolor='red', linestyle='--', linewidth = 1.5
+    ))
 
-print(np.log10(1/len(log_lambda_lims)))
+    # Box for SF region
+    plt.gca().add_patch(plt.Rectangle(
+        (x0, -11.5), x1 - x0, 2,  # height from -11.5 to 0 (assuming max sSFR is near 0)
+        fill=False, edgecolor='blue', linestyle='--', linewidth = 1.5
+    ))
+
+# Draw shaded boxes for bins
+for i in range(len(mass_bins) - 1):
+    x0 = mass_bins[i]
+    x1 = mass_bins[i + 1]
+
+    # Shaded box for Q region
+    plt.gca().add_patch(plt.Rectangle(
+        (x0, -16), x1 - x0, 4.5,  # height from -16 to -11.5
+        fill=True, facecolor='red', alpha=0.01, edgecolor='red', linestyle='--'
+    ))
+
+    # Shaded box for SF region
+    plt.gca().add_patch(plt.Rectangle(
+        (x0, -11.5), x1 - x0, 2,  # height from -11.5 to 0
+        fill=True, facecolor='blue', alpha=0.01, edgecolor='blue', linestyle='--'
+    ))
+
+# Labels and legend
+plt.xlabel(r'$\log_{\rm 10} \left( M_{\star}/ M_{\odot}\right)$', fontsize = f)
+plt.ylabel(r'$\log_{\rm 10} \left( sSFR/ yr^{-1}\right)$', fontsize = f)
+plt.legend(loc = 'lower right', fontsize = f)
+plt.tight_layout()
+plt.xlim(9.8, 12.2)
+plt.xticks([10,10.5, 11,11.5,12], fontsize = 0.75*f)
+plt.ylim(-19,-9)
+plt.yticks([-19,-17, -15, -13,-11, -9], fontsize = 0.75*f)
+plt.show()
